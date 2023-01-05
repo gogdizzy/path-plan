@@ -3,18 +3,12 @@ import sys
 import numpy as np
 from PyQt5.QtWidgets import QApplication
 
-from src.test_gui import GridCanvas
+from src.utils import GridCanvas, GridType, Colors, States
 from src.algo import AStar
 from src.geometry import Point2D, SimpleRect
 
 
 class AStarTestGui(GridCanvas):
-
-    OBS_VALUE = 1
-
-    STATE_INIT = 1
-    STATE_SEARCH = 2
-    STATE_OVER = 3
 
     def __init__(self):
 
@@ -26,16 +20,16 @@ class AStarTestGui(GridCanvas):
     def distanceFunc(self, x0, y0, x1, y1):
 
         cost = math.hypot(x1 - x0, y1 - y0)
-        penalty = 1000000 if self.map[x1][y1] == self.OBS_VALUE else 0
+        penalty = 1000000 if self.map[x1][y1] == GridType.Obstacle else 0
         return cost + penalty
 
     def initData(self):
 
         self.map = np.zeros([256, 256])
         for y in range(5, 75):
-            self.map[33][y] = self.OBS_VALUE
+            self.map[33][y] = GridType.Obstacle
         for x in range(5, 34):
-            self.map[x][75] = self.OBS_VALUE
+            self.map[x][75] = GridType.Obstacle
 
         self.startPoint = Point2D(28, 64)
         self.goalPoint = Point2D(40, 70)
@@ -60,17 +54,17 @@ class AStarTestGui(GridCanvas):
     def timerEvent(self, event):
         '''handles timer event'''
 
-        if self.state == self.STATE_INIT:
-            self.state = self.STATE_SEARCH
+        if self.state == States.Init:
+            self.state = States.Searching
             self.run()
 
         if event.timerId() == self.timer.timerId():
             self.update()
-            if self.state == self.STATE_SEARCH:
+            if self.state == States.Searching:
                 try:
                     self.routine.send(self.onNewPoint)
                 except StopIteration:
-                    self.state = self.STATE_OVER
+                    self.state = States.Over
         else:
             super(AStarTestGui, self).timerEvent(event)
 
@@ -79,21 +73,21 @@ class AStarTestGui(GridCanvas):
 
         path = self.algo.path
         for i in range(len(path) - 1):
-            self.drawConn(path[i].x, path[i].y, path[i+1].x, path[i+1].y, self.DefaultConnColor)
+            self.drawConn(path[i].x, path[i].y, path[i+1].x, path[i+1].y, Colors.DefaultConnColor)
 
     def paintObjects(self):
 
         for pt in self.updatePoints:
             x, y, dist = pt
-            self.drawPoint(x, y, self.DefaultPopColor if dist == self.algo.POP_VALUE else self.DefaultVisitColor)
+            self.drawPoint(x, y, Colors.DefaultPopColor if dist == self.algo.POP_VALUE else Colors.DefaultVisitColor)
 
-        self.drawPoint(self.startPoint.x, self.startPoint.y, self.DefaultStartColor)
-        self.drawPoint(self.goalPoint.x, self.goalPoint.y, self.DefaultGoalColor)
+        self.drawPoint(self.startPoint.x, self.startPoint.y, Colors.DefaultStartColor)
+        self.drawPoint(self.goalPoint.x, self.goalPoint.y, Colors.DefaultGoalColor)
 
         for x in range(self.box.left, self.box.right + 1):
             for y in range(self.box.bottom, self.box.top):
-                if self.map[x][y] == self.OBS_VALUE:
-                    self.drawPoint(x, y, self.DefaultObsColor)
+                if self.map[x][y] == GridType.Obstacle:
+                    self.drawPoint(x, y, Colors.DefaultObsColor)
 
         if self.algo.found:
             self.drawPath()

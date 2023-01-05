@@ -1,16 +1,12 @@
 import sys
 
 from PyQt5.QtWidgets import QApplication
-from src.test_gui import GridCanvas
+from src.utils import GridCanvas, States, Colors
 from src.algo import Dijkstra
 from src.geometry import Point2D, SimpleRect
 
 
 class DijkstraTestGui(GridCanvas):
-
-    STATE_INIT = 1
-    STATE_SEARCH = 2
-    STATE_OVER = 3
 
     def __init__(self):
 
@@ -45,17 +41,17 @@ class DijkstraTestGui(GridCanvas):
     def timerEvent(self, event):
         '''handles timer event'''
 
-        if self.state == self.STATE_INIT:
-            self.state = self.STATE_SEARCH
+        if self.state == States.Init:
+            self.state = States.Searching
             self.run()
 
         if event.timerId() == self.timer.timerId():
             self.update()
-            if self.state == self.STATE_SEARCH:
+            if self.state == States.Searching:
                 try:
                     self.routine.send(self.onNewPoint)
                 except StopIteration:
-                    self.state = self.STATE_OVER
+                    self.state = States.Over
         else:
             super(DijkstraTestGui, self).timerEvent(event)
 
@@ -64,16 +60,16 @@ class DijkstraTestGui(GridCanvas):
 
         path = self.algo.path
         for i in range(len(path) - 1):
-            self.drawConn(path[i].x, path[i].y, path[i+1].x, path[i+1].y, self.DefaultConnColor)
+            self.drawConn(path[i].x, path[i].y, path[i+1].x, path[i+1].y, Colors.DefaultConnColor)
 
     def paintObjects(self):
 
         for pt in self.updatePoints:
             x, y, dist = pt
-            self.drawPoint(x, y, self.DefaultPopColor if dist == self.algo.POP_VALUE else self.DefaultVisitColor)
+            self.drawPoint(x, y, Colors.DefaultPopColor if dist == self.algo.POP_VALUE else Colors.DefaultVisitColor)
 
-        self.drawPoint(self.startPoint.x, self.startPoint.y, self.DefaultStartColor)
-        self.drawPoint(self.goalPoint.x, self.goalPoint.y, self.DefaultGoalColor)
+        self.drawPoint(self.startPoint.x, self.startPoint.y, Colors.DefaultStartColor)
+        self.drawPoint(self.goalPoint.x, self.goalPoint.y, Colors.DefaultGoalColor)
 
         if self.algo.found:
             self.drawPath()

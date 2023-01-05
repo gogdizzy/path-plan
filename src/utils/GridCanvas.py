@@ -1,7 +1,9 @@
 
 from PyQt5.QtWidgets import QWidget, QDesktopWidget, QFileDialog
-from PyQt5.QtGui import QPainter, QColor, QPen
+from PyQt5.QtGui import QPainter, QPen
 from PyQt5.QtCore import QBasicTimer, QSettings
+
+from src.utils import Colors
 
 
 class GridCanvas(QWidget):
@@ -10,20 +12,6 @@ class GridCanvas(QWidget):
     FrameSpeed = 30
     MapWidth = 512
     MapHeight = 256
-
-    DefaultTextColor = QColor(0, 0, 0)
-    DefaultBgColor = QColor(224, 224, 216)
-    DefaultGridColor = QColor(168, 168, 158)
-    DefaultStartColor = QColor(255, 128, 128)
-    DefaultGoalColor = QColor(128, 128, 255)
-    DefaultConnColor = QColor(0, 250, 34)
-    DefaultObsColor = QColor(0, 0, 0)
-    DefaultNearObsColor = QColor(150, 150, 150)
-    DefaultCornerColor = QColor(255, 0, 0)
-    DefaultNearCornerColor = QColor(100, 100, 100)
-    DefaultVisitColor = QColor(102, 250, 196)
-    DefaultPopColor = QColor(202, 250, 196)
-    DefaultNarrowColor = QColor(255, 0, 0)
 
     def __init__(self):
 
@@ -70,14 +58,14 @@ class GridCanvas(QWidget):
         self.qp.end()
 
 
-    def drawBackground(self, color=DefaultBgColor):
+    def drawBackground(self, color=Colors.DefaultBgColor):
 
         self.qp.setPen(color)
         self.qp.setBrush(color)
         self.qp.drawRect(0, 0, self.TileSize * self.MapWidth, self.TileSize * self.MapHeight)
 
 
-    def drawGridLine(self, color=DefaultGridColor):
+    def drawGridLine(self, color=Colors.DefaultGridColor):
 
         size = self.size()
 
@@ -112,6 +100,7 @@ class GridCanvas(QWidget):
 
 
     def drawConn(self, x0, y0, x1, y1, color):
+
         pen = QPen(color, 2)
         self.qp.setPen(pen)
         self.qp.drawLine(x0 * self.TileSize + self.TileSize / 2,
@@ -121,6 +110,7 @@ class GridCanvas(QWidget):
 
 
     def getOpenFileName(self):
+
         qSettings = QSettings()
         lastPath = qSettings.value("LastFilePath")
         filename, choosed = QFileDialog.getOpenFileName(self, 'Open file', lastPath)
@@ -133,6 +123,7 @@ class GridCanvas(QWidget):
 
 
     def getSaveFileName(self):
+
         qSettings = QSettings()
         lastPath = qSettings.value("LastFilePath")
         filename, choosed = QFileDialog.getSaveFileName(self, 'Save file', lastPath)
