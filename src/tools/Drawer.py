@@ -87,11 +87,39 @@ class Drawer(GridCanvas):
         #self.rightBrushY = self.robotY - 113
         #self.rightBrushR = 73
 
+    def drawRobotAndCarpet(self):
+
+        robotR = 175
+        robotRwithGlue = 179
+
+        offsetX = 1700
+        offsetY = 450
+
+        self.qp.setPen(QPen(QColor(0, 255, 0), 2))
+        self.qp.setBrush(Qt.NoBrush)
+        self.qp.drawEllipse(QPoint(0 + offsetX, 0 + offsetY), robotR, robotR)
+        self.qp.setPen(QPen(QColor(0, 255, 0), 1))
+        self.qp.drawEllipse(QPoint(0 + offsetX, 0 + offsetY), robotRwithGlue, robotRwithGlue)
+
+        self.qp.setPen(QPen(QColor(0, 0, 255), 3))
+        for x in range(-2, 3):
+            for y in range(-2, 3):
+                if math.hypot(x, y) <= 1.5:
+                    self.qp.drawRect(x * 50 - 25 + offsetX, y * 50 - 25 + offsetY, 50, 50)
+
+        self.qp.setPen(QPen(QColor(255, 0, 0), 1))
+        for x in range(0, 6):
+            for y in range(-6, 6):
+                if math.hypot(x, y) <= 5:
+                    self.qp.drawRect(x * 50 - 25 + offsetX, y * 50 - 25 + offsetY, 50, 50)
+
+
 
     def paintObjects(self):
 
         self.drawHouse()
         self.drawRobot()
+        self.drawRobotAndCarpet()
 
         #
         # self.qp.drawLine(self.robotX, self.robotY, self.robotX + 200, self.robotY)

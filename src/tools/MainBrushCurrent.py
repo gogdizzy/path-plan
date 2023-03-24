@@ -1,3 +1,5 @@
+import time
+
 from PyQt5.QtCore import QSettings
 from PyQt5.QtWidgets import QWidget, QDesktopWidget, QFileDialog, QApplication, QRadioButton
 from PyQt5.QtGui import QPainter, QColor
@@ -14,41 +16,10 @@ class MainBrushCurrent(GridCanvas):
     OffsetX = 100
     OffsetY = 30
 
-    # Threshold = [800, 790, 780, 770,
-    #              760, 750, 740, 730,
-    #              720, 710, 700, 0]  # max
-
-    # Threshold = [700, 690, 680, 670,
-    #              660, 650, 640, 630,
-    #              620, 610, 600, 0]  # max
-    #
-    # Threshold = [600, 590, 580, 570,
-    #              560, 550, 540, 530,
-    #              520, 510, 500, 0]  # max
-
-    # Threshold = [500, 490, 480, 470,
-    #              460, 450, 440, 430,
-    #              420, 410, 400, 0]  # max
-
-    # Threshold = [450, 440, 430, 420,
-    #              410, 400, 390, 380,
-    #              370, 360, 350, 0]  # max
-
     Threshold = [400, 390, 380, 370,
                  360, 350, 340, 330,
-                 320, 310, 300, 0]  # slow
+                 320, 310, 300, 0]
 
-    # Threshold = [350, 340, 330, 320,
-    #              310, 300, 290, 280,
-    #              270, 260, 250, 0]  # standard
-
-    # Threshold = [300, 290, 280, 270,
-    #              260, 250, 240, 230,
-    #              220, 210, 200, 0]  # standard
-
-    # Threshold = [240, 230, 220, 210,
-    #              200, 190, 180, 170,
-    #              160, 150, 140, 0]  # slow
 
     def __init__(self):
 
@@ -66,7 +37,12 @@ class MainBrushCurrent(GridCanvas):
         return round(float(posStr) / 50.0)
 
     def calcColor(self, current):
-        red = np.clip(round((float(current) / 400.0 - 0.5) * 255.0), 0, 255)
+        red = round((float(current) / 400.0 - 0.5) * 255.0)
+        if red < 0:
+            red = 0
+        elif red > 255:
+            red = 255
+        # red = np.clip(round((float(current) / 400.0 - 0.5) * 255.0), 0, 255)
         return QColor(red, red, red)
 
     def initData(self):
@@ -88,7 +64,7 @@ class MainBrushCurrent(GridCanvas):
                 x = self.calcPos(data[0])
                 y = self.calcPos(data[1])
                 current = int(data[2])
-                print("xyc:", x, y, current)
+                # print("xyc:", x, y, current)
                 self.dataArray.append([x, y, current])
                 self.dataBox[0] = min(x, self.dataBox[0])
                 self.dataBox[1] = min(y, self.dataBox[1])
@@ -96,6 +72,14 @@ class MainBrushCurrent(GridCanvas):
                 self.dataBox[3] = max(y, self.dataBox[3])
 
         print(self.dataBox)
+        self.drawCnt = 0
+
+        self.colorGray = QColor(128, 128, 128)
+        self.colorTable = []
+        for current in range(5000):
+            self.colorTable.append(self.calcColor(current))
+
+        self.drawnPoint = set()
 
 
     def initUI(self):
@@ -128,17 +112,14 @@ class MainBrushCurrent(GridCanvas):
                       [w0, h1], [w1, h1], [w2, h1], [w3, h1],
                       [w0, h2], [w1, h2], [w2, h2], [w3, h2]]
 
-        self.Scale = int(np.floor(min((w1 - self.ChartMargin * 2) / (self.dataBox[2] - self.dataBox[0]),
-                                  (h1 - self.ChartMargin * 2) / (self.dataBox[3] - self.dataBox[1]))))
+        self.Scale = min((w1 - self.ChartMargin * 2) / (self.dataBox[2] - self.dataBox[0]),
+                         (h1 - self.ChartMargin * 2) / (self.dataBox[3] - self.dataBox[1]))
 
-        if self.Scale == 0:
-            self.Scale = 1
+        # self.Scale = 1
 
         print(self.dataBox)
         print('scale:', self.Scale)
         print(size)
-
-
 
 
     def chooseRange(self):
@@ -161,13 +142,17 @@ class MainBrushCurrent(GridCanvas):
 
     def drawDataInPanel(self, data, i, color=None):
 
-        current = data[2]
-        if color is None:
-            color = self.calcColor(current)
-        if current >= self.Threshold[i]:
-            x = (data[0] - self.dataBox[0]) * self.Scale + self.Panel[i][0] + self.ChartMargin
-            y = (data[1] - self.dataBox[1]) * self.Scale + self.Panel[i][1] + self.ChartMargin
-            self.drawPoint(x, y, color)
+        x = round((data[0] - self.dataBox[0]) * self.Scale + self.Panel[i][0] + self.ChartMargin)
+        y = round((data[1] - self.dataBox[1]) * self.Scale + self.Panel[i][1] + self.ChartMargin)
+
+        key = ((x << 16) | y)
+
+        if key in self.drawnPoint:
+            return
+
+        self.drawPoint(x, y, color)
+        self.drawnPoint.add(key)
+        self.drawCnt += 1
 
 
     def drawLabel(self):
@@ -181,20 +166,30 @@ class MainBrushCurrent(GridCanvas):
 
         self.drawLabel()
 
+        stTime = time.perf_counter()
+        self.drawnPoint.clear()
+        self.drawCnt = 0
         for data in self.dataArray:
+            current = data[2]
             for i in range(len(self.Panel)):
-                self.drawDataInPanel(data, i)
+            # for i in range(1):
+                if current >= self.Threshold[i]:
+                    self.drawDataInPanel(data, i, self.colorGray)
 
-        for data in [[6,144,10], [7,144,10],[8,144,10],[9,144,10],[26, 144, 10]]:
-            self.drawDataInPanel(data, 11, QColor(255, 0, 0))
-        #self.drawPoint(6, 144, QColor(255, 0, 0))
-        #self.drawPoint(26, 144, QColor(255, 0, 0))
+        edTime = time.perf_counter()
+        print("drawCnt: ", self.drawCnt, " dur: ", edTime - stTime)
+
+        # for data in [[6,144,10], [7,144,10],[8,144,10],[9,144,10],[26, 144, 10]]:
+        #     self.drawDataInPanel(data, 11, QColor(255, 0, 0))
+        # self.drawPoint(6, 144, QColor(255, 0, 0))
+        # self.drawPoint(26, 144, QColor(255, 0, 0))
 
 
     def drawPoint(self, x, y, color):
 
         self.qp.setBrush(color)
-        self.qp.drawEllipse(x, y, 2 * self.Scale, 2 * self.Scale)
+        self.qp.drawRect(x, y, 2 * self.Scale, 2 * self.Scale)
+        # self.qp.drawEllipse(x, y, 2 * self.Scale, 2 * self.Scale)
 
 
 if __name__ == '__main__':
