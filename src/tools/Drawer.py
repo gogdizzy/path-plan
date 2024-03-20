@@ -82,6 +82,38 @@ class Drawer(GridCanvas):
                 if math.hypot(x, y) <= 3:
                     self.qp.drawRect(x * 50 - 25 + offsetX, y * 50 - 25 + offsetY, 50, 50)
 
+        offsetX = 700
+        offsetY = 700
+
+        self.qp.setPen(QPen(QColor(0, 255, 0), 2))
+        self.qp.setBrush(Qt.NoBrush)
+        self.qp.drawEllipse(QPoint(0 + offsetX, 0 + offsetY), robotR, robotR)
+        self.qp.setPen(QPen(QColor(0, 255, 0), 1))
+        self.qp.drawEllipse(QPoint(0 + offsetX, 0 + offsetY), robotRwithGlue, robotRwithGlue)
+
+        self.qp.setPen(QPen(QColor(0, 0, 255), 1))
+
+        for x in range(-3, 4):
+            for y in range(-3, 4):
+                if math.hypot(x, y) <= 3.5:
+                    self.qp.drawRect(x * 50 - 25 + offsetX, y * 50 - 25 + offsetY, 50, 50)
+
+        offsetX = 1200
+        offsetY = 700
+
+        self.qp.setPen(QPen(QColor(0, 255, 0), 2))
+        self.qp.setBrush(Qt.NoBrush)
+        self.qp.drawEllipse(QPoint(0 + offsetX, 0 + offsetY), robotR, robotR)
+        self.qp.setPen(QPen(QColor(0, 255, 0), 1))
+        self.qp.drawEllipse(QPoint(0 + offsetX, 0 + offsetY), robotRwithGlue, robotRwithGlue)
+
+        self.qp.setPen(QPen(QColor(0, 0, 255), 1))
+
+        for x in range(-3, 4):
+            for y in range(-3, 4):
+                if math.hypot(x, y) <= 4:
+                    self.qp.drawRect(x * 50 - 25 + offsetX, y * 50 - 25 + offsetY, 50, 50)
+
         #self.redzoneR = self.robotRwithGlue + 12
         ##self.rightBrushX = self.robotX + 92
         #self.rightBrushY = self.robotY - 113

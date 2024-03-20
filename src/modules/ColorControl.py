@@ -1,0 +1,48 @@
+# https://zhuanlan.zhihu.com/p/570148970
+class ColorControl:
+
+    End        = "\033[0m"
+    Bright     = "\033[1m"
+    HalfBright = "\033[2m"
+    Italic     = "\033[3m"
+    Underline  = "\033[4m"
+    Blink      = "\033[5m"
+    Reverse    = "\033[7m"
+    Hidden     = "\033[8m"
+
+    FgBlack  = "\033[30m"
+    FgRed    = "\033[31m"
+    FgGreen  = "\033[32m"
+    FgYellow = "\033[33m"
+    FgBlue   = "\033[34m"
+    FgPurple = "\033[35m"
+    FgCyan   = "\033[36m"
+    FgWhite  = "\033[37m"
+
+    BgBlack  = "\033[40m"
+    BgRed    = "\033[41m"
+    BgGreen  = "\033[42m"
+    BgYellow = "\033[43m"
+    BgBlue   = "\033[44m"
+    BgPurple = "\033[45m"
+    BgCyan   = "\033[46m"
+    BgWhite  = "\033[47m"
+
+    BrFgBlack  = "\033[90m"
+    BrFgRed    = "\033[91m"
+    BrFgGreen  = "\033[92m"
+    BrFgYellow = "\033[93m"
+    BrFgBlue   = "\033[94m"
+    BrFgPurple = "\033[95m"
+    BrFgCyan   = "\033[96m"
+    BrFgWhite  = "\033[97m"
+
+    BrBgBlack  = "\033[100m"
+    BrBgRed    = "\033[101m"
+    BrBgGreen  = "\033[102m"
+    BrBgYellow = "\033[103m"
+    BrBgBlue   = "\033[104m"
+    BrBgPurple = "\033[105m"
+    BrBgCyan   = "\033[106m"
+    BrBgWhite  = "\033[107m"
+

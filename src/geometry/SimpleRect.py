@@ -1,7 +1,7 @@
 
 class SimpleRect:
 
-    def __init__(self, left=0, bottom=0, right=0, top=0):
+    def __init__(self, left=0, bottom=0, right=-1, top=-1):
 
         self.left = left
         self.right = right
@@ -15,6 +15,10 @@ class SimpleRect:
     def __repr__(self):
 
         return f'({self.left},{self.bottom},{self.right},{self.top})'
+
+    def valid(self):
+
+        return self.left <= self.right and self.bottom <= self.top
 
     def width(self):
 
@@ -34,14 +38,21 @@ class SimpleRect:
 
     def expand(self, x, y):
 
-        if x < self.left:
-            self.left = x
-        if x > self.right:
-            self.right = x
-        if y < self.bottom:
-            self.bottom = y
-        if y > self.top:
-            self.top = y
+        if self.valid():
+
+            if x < self.left:
+                self.left = x
+            if x > self.right:
+                self.right = x
+            if y < self.bottom:
+                self.bottom = y
+            if y > self.top:
+                self.top = y
+
+        else:
+
+            self.left = self.right = x
+            self.bottom = self.top = y
 
     def contains(self, x, y):
 

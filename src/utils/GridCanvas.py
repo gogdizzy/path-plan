@@ -18,12 +18,13 @@ class GridCanvas(QWidget):
         super().__init__()
 
 
-    def initUI(self, title):
+    def initUI(self, title, show=True):
 
         self.qp = QPainter()
 
         self.setWindowTitle(title)
-        self.showMaximized()
+        if show:
+            self.showMaximized()
 
         self.timer = QBasicTimer()
         self.timer.start(self.FrameSpeed, self)
