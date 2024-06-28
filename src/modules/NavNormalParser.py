@@ -8,6 +8,54 @@ class NavNormalParser:
 
         self.filename = filename
 
+    def getCamera2DPoints(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "Camera2DBumper" in line and "Input data" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "data:":
+                        timestamp = int(parts[0].split(",")[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y = map(int, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                    elif parts[7] == "data:":
+                        timestamp = int(parts[1])
+                        for i in range(8, len(parts) - 1):   # tail is space
+                            x, y = map(int, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                    res.append(TimeAndPoint2D(timestamp, points))
+
+        return res
+
+    def getGotoObsPoints(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "nearObs" in line and "GotoObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "nearObs:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y = map(int, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                    res.append(TimeAndPoint2D(timestamp, points))
+
+        return res
+
     def getEasyStuckPoints(self):
 
         res = []
@@ -39,11 +87,11 @@ class NavNormalParser:
 
                 if "maybeOnCarpet" in line and "CarpetDetectorByCurrent" in line:
                     parts = line.split(" ")
-                    offset = 6
-                    if parts[6] == "maybeOnCarpet":
+                    offset = 5
+                    if parts[5] == "maybeOnCarpet":
+                        offset = 5
+                    elif parts[6] == "maybeOnCarpet":
                         offset = 6
-                    elif parts[7] == "maybeOnCarpet":
-                        offset = 7
 
                     avgCurrent = int(parts[offset + 2])
                     mbSpeed = int(parts[offset + 7])
@@ -58,7 +106,25 @@ class NavNormalParser:
         return res
 
 
+    def getBin5LaserPoints(self):
 
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                points = []
+                parts = line.split(" ")
+                if parts[6] != "":
+                    timestamp = int(parts[0])
+                    for i in range(6, len(parts) - 1):   # tail is space
+                        x, y = map(int, parts[i].split(","))
+                        points.append(Point2D(x, y))
+
+                res.append(TimeAndPoint2D(timestamp, points))
+
+        return res
 
 
 

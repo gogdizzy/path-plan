@@ -1,35 +1,32 @@
 import queue
-
-import cv2
-from PyQt5.QtWidgets import QWidget, QDesktopWidget, QMessageBox, QInputDialog, QApplication, QFileDialog, QCheckBox
-from PyQt5.QtGui import QPainter, QColor
-from PyQt5.QtCore import QBasicTimer, QPoint, Qt, QSettings, QRect
-import numpy as np
-import sys, math
-from datetime import datetime
+import sys
+import math
 import time
+import cv2
+import numpy as np
 
-from src.utils import GridCanvas, GridType, GridMapPPM
+from PyQt5.QtWidgets import QMessageBox, QApplication, QCheckBox
+from PyQt5.QtGui import QColor
+from PyQt5.QtCore import QPoint, Qt
+
+from src.utils import GridCanvas, GridType, GridMapPPM, Colors
 from src.geometry import SimpleRect
 from src.algo import GraphicAlgo
 
 
+class DenseObsFinder(GridCanvas):
 
 
-class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
-
-    NarrowCost = 100
-    # NarrowCost = 0
     BUBBLE_R = 5
     POP_VALUE = -2
-    # NearObsCost = [10000000, 1000000, 100000, 10000, 100, 1, 0]
+
+    NarrowCost = 100
     NearObsCost = [1000000000000, 1000000000000, 10000, 10, 1, 0, 0]
-    # NearObsCost = [100000000000000, 100000000000000, 1000000, 1000, 100, 0, 0]
     NearCornerCost = [12800, 6400, 3200, 1600, 800, 400, 300, 200, 100, 50, 0]
+
     SimilarMask = {0x01: 0x83, 0x02: 0x07, 0x04: 0x0E, 0x08: 0x1C,
-                    0x10: 0x38, 0x20: 0x70, 0x40: 0xE0, 0x80: 0xC1}
-    # OppositeMask = {0x01: 0x38, 0x02: 0x70, 0x04: 0xE0, 0x08: 0xC1,
-    #                 0x10: 0x83, 0x20: 0x07, 0x40: 0x0E, 0x80: 0x1C}
+                   0x10: 0x38, 0x20: 0x70, 0x40: 0xE0, 0x80: 0xC1}
+
     OppositeMask = {0x01: 0x380, 0x02: 0x700, 0x04: 0xE00, 0x08: 0x1C00,
                     0x10: 0x3800, 0x20: 0x7000, 0x40: 0xE000, 0x80: 0xC001,
                     0x100: 0x8003, 0x200: 0x07, 0x400: 0x0E, 0x800: 0x1C,
@@ -49,8 +46,6 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
         self.checkBox2 = QCheckBox('ShowConvexHull', self)
         self.checkBox2.move(30, 100)
         self.checkBox2.stateChanged.connect(self.shouldShowConvex)
-
-
 
         self.checkBox3 = QCheckBox('ShowAuxPoint', self)
         self.checkBox3.move(30, 120)
@@ -149,35 +144,35 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                 if self.smallObsPts[x][y] == 1:
                     self.drawPoint(x, y, QColor(255, 255, 0))
                 if self.showDense and self.tmpMap[x][y] == 1:
-                    self.drawPoint(x, y, self.DefaultObsCenterColor)
+                    self.drawPoint(x, y, Colors.DefaultObsCenterColor)
                 elif self.showAuxPoint and (x, y) in self.obsCenter:
-                    self.drawPoint(x, y, self.DefaultObsCenterColor)
-                elif mapData[x][y] != self.DEFAULT_VALUE:
-                    if mapData[x][y] == self.OBS_VALUE:
-                        self.drawPoint(x, y, self.DefaultObsColor)
-                    elif self.showAuxPoint and mapData[x][y] == self.NARROW_VALUE:
-                        self.drawPoint(x, y, self.DefaultNarrowColor)
+                    self.drawPoint(x, y, Colors.DefaultObsCenterColor)
+                elif mapData[x][y] != GridType.Default:
+                    if mapData[x][y] == GridType.Obstacle:
+                        self.drawPoint(x, y, Colors.DefaultObsColor)
+                    elif self.showAuxPoint and mapData[x][y] == GridType.Narrow:
+                        self.drawPoint(x, y, Colors.DefaultNarrowColor)
                     elif self.showAuxPoint:
-                        self.drawPoint(x, y, self.DefaultVisitColor)
+                        self.drawPoint(x, y, Colors.DefaultVisitColor)
                 else:
                     if self.showAuxPoint and self.HasOppositeMask[self.nearObsVec[x][y]]:
-                        self.drawPoint(x, y, self.DefaultNearCornerColor)
+                        self.drawPoint(x, y, Colors.DefaultNearCornerColor)
                     # if self.nearCornerMap[x][y] >= 0:
-                    #     self.drawPoint(x, y, self.DefaultNearCornerColor)
+                    #     self.drawPoint(x, y, Colors.DefaultNearCornerColor)
                     # elif self.nearObsMap[x][y] >= 0:
-                    #     self.drawPoint(x, y, self.DefaultNearObsColor)
+                    #     self.drawPoint(x, y, Colors.DefaultNearObsColor)
 
                 # if self.data is not None:
                 #     if self.data[x][y] == -1:
-                #         self.drawPoint(x, y, self.DefaultObsColor)
+                #         self.drawPoint(x, y, Colors.DefaultObsColor)
                 #     elif self.data[x][y] == -2:
-                #         self.drawPoint(x, y, self.DefaultPopColor)
+                #         self.drawPoint(x, y, Colors.DefaultPopColor)
 
         self.drawLabel()
         if self.mouseDown:
-            self.drawPoints(self.getBresenhamPoints8(self.mousePosBeg, self.mousePosEnd), self.DefaultVisitColor)
-        self.drawPoint(self.mousePosBeg.x(), self.mousePosBeg.y(), self.DefaultStartColor)
-        self.drawPoint(self.mousePosEnd.x(), self.mousePosEnd.y(), self.DefaultGoalColor)
+            self.drawPoints(GraphicAlgo.getBresenhamPoints8(self.mousePosBeg, self.mousePosEnd), Colors.DefaultVisitColor)
+        self.drawPoint(self.mousePosBeg.x(), self.mousePosBeg.y(), Colors.DefaultStartColor)
+        self.drawPoint(self.mousePosEnd.x(), self.mousePosEnd.y(), Colors.DefaultGoalColor)
 
         if self.showConvexHull:
             self.drawChairConvex()
@@ -197,7 +192,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                 pointCnt = len(hull)
                 for i in range(pointCnt):
                     j = 0 if i == pointCnt - 1 else i + 1
-                    self.drawConn(hull[i][0][0], hull[i][0][1], hull[j][0][0], hull[j][0][1], self.DefaultHullColor)
+                    self.drawConn(hull[i][0][0], hull[i][0][1], hull[j][0][0], hull[j][0][1], Colors.DefaultHullColor)
 
     def drawChairContours(self):
 
@@ -206,10 +201,10 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                 pointCnt = len(contour)
                 for i in range(pointCnt):
                     j = 0 if i == pointCnt - 1 else i + 1
-                    self.drawConn(contour[i][0][1], contour[i][0][0], contour[j][0][1], contour[j][0][0], self.DefaultContourColor)
+                    self.drawConn(contour[i][0][1], contour[i][0][0], contour[j][0][1], contour[j][0][0], Colors.DefaultContourColor)
 
     def drawLabel(self):
-        self.qp.setPen(self.DefaultTextColor)
+        self.qp.setPen(Colors.DefaultTextColor)
         self.qp.drawText(50, 50, "pos {} {} -> {} {}".format(self.mousePosBeg.x(), self.mousePosBeg.y(),
                                                              self.mousePosEnd.x(), self.mousePosEnd.y()))
 
@@ -221,7 +216,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
         for i in range(1, len(path)):
             self.drawConn(path[i-1].x(), path[i-1].y(),
                           path[i].x(), path[i].y(),
-                          self.DefaultConnColor)
+                          Colors.DefaultConnColor)
 
 
     def drawSplinePath(self):
@@ -238,39 +233,30 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
             x, y = px, py
             pts.append((x, y))
 
-        opts = DenseObsFinder.bspline(pts, 200)
+        opts = GraphicAlgo.bspline(pts, 200)
         for i in range(1, len(opts)):
-            self.drawConn(opts[i-1][0], opts[i-1][1], opts[i][0], opts[i][1], self.DefaultConnColor)
+            self.drawConn(opts[i-1][0], opts[i-1][1], opts[i][0], opts[i][1], Colors.DefaultConnColor)
 
 
     def mousePressEvent(self, e):
         self.mousePosBeg = QPoint(e.pos().x() // self.TileSize, e.pos().y() // self.TileSize)
         self.mouseDown = True
-        pass
-        # QMessageBox.question(self, 'Message',
-        #                     "mouse pos x = {}, y = {}".format(e.pos().x() // self.TileSize, e.pos().y() // self.TileSize), QMessageBox.Ok)
 
 
     def mouseMoveEvent(self, e):
         self.mousePosEnd = QPoint(e.pos().x() // self.TileSize, e.pos().y() // self.TileSize)
         self.update()
-        # QMessageBox.question(self, 'Message',
-        #                      "mouse pos x = {}, y = {}".format(e.pos().x() // self.TileSize, e.pos().y() // self.TileSize), QMessageBox.Ok)
 
 
     def mouseReleaseEvent(self, e):
         self.mousePosEnd = QPoint(e.pos().x() // self.TileSize, e.pos().y() // self.TileSize)
         self.mouseDown = False
-        # for pt in self.getBresenhamPoints8(self.mousePosBeg, self.mousePosEnd):
-        #     self.mapData[pt.x()][pt.y()] = -1
+
         self.update()
         self.search()
         print("nearObs {} {} {} {}".format(self.mousePosEnd.x(), self.mousePosEnd.y(),
                                            self.map.mapData[self.mousePosEnd.x()][self.mousePosEnd.y()],
-                                        self.nearObsMap[self.mousePosEnd.x()][self.mousePosEnd.y()]))
-        # QMessageBox.question(self, 'Message',
-        #                      "mouse pos x = {}, y = {}".format(e.pos().x() // self.TileSize, e.pos().y() // self.TileSize), QMessageBox.Ok)
-
+                                           self.nearObsMap[self.mousePosEnd.x()][self.mousePosEnd.y()]))
 
     def keyPressEvent(self, e):
         if QApplication.keyboardModifiers() == Qt.ControlModifier and e.key() == Qt.Key_S:
@@ -278,8 +264,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
 
         elif QApplication.keyboardModifiers() == Qt.ControlModifier and e.key() == Qt.Key_O:
             self.map.loadData(self.getOpenFileName())
-            # self.updateNearObs()
-            self.updateNearObs3()
+            self.updateNearObs()
             self.updateCorners()
             self.updateChairConvex()
 
@@ -288,6 +273,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
             self.update()
 
 
+    # 对点 (x,y) 周围 r 以内的范围的点，执行 handle
     def roundingPoint(self, x, y, r, handle):
         mapWidth = self.map.mapWidth
         mapHeight = self.map.mapHeight
@@ -302,105 +288,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                     handle(x, y, nx, ny, dr)
 
 
-
     def updateNearObs(self):
-
-        mapData = self.map.mapData
-        mapWidth = self.map.mapWidth
-        mapHeight = self.map.mapHeight
-
-        self.nearObsMap = np.zeros((mapWidth, mapHeight), dtype=int)
-        self.nearObsMap.fill(-1)
-        self.nearObsVec = np.zeros((mapWidth, mapHeight), dtype=int)
-
-        def getVec(xobs, yobs, x, y):
-            if xobs == x and yobs == y:
-                return 0
-            idx = round(math.atan2(yobs - y, xobs - x) / (math.pi / 4))
-            if idx < 0:
-                idx = idx + 8
-            return 0x1 << idx
-
-
-        def handleNearObs(xobs, yobs, x, y, r):
-            rr = round(r)
-            if self.nearObsMap[x][y] == -1 or self.nearObsMap[x][y] > rr:
-                self.nearObsMap[x][y] = rr
-            self.nearObsVec[x][y] = (self.nearObsVec[x][y] | getVec(xobs, yobs, x, y))
-
-        for x in range(0, mapWidth):
-            for y in range(0, mapHeight):
-                if mapData[x][y] == self.OBS_VALUE:
-                    self.roundingPoint(x, y, self.BUBBLE_R, handleNearObs)
-
-
-    def updateNearObs2(self):
-
-        mapData = self.map.mapData
-        mapWidth = self.map.mapWidth
-        mapHeight = self.map.mapHeight
-
-        nearObsMap = np.zeros((mapWidth, mapHeight), dtype=float)
-        nearObsMap.fill(1000)
-
-        self.nearObsVec = np.zeros((mapWidth, mapHeight), dtype=int)
-
-        def getVec(xobs, yobs, x, y):
-            if xobs == x and yobs == y:
-                return 0
-            idx = round(math.atan2(yobs - y, xobs - x) / (math.pi / 4))
-            if idx < 0:
-                idx = idx + 8
-            return 0x1 << idx
-
-        def handleNearObs(xobs, yobs, x, y, v):
-            if x < 0 or x >= mapWidth or y < 0 or y >= mapHeight:
-                return
-
-            if nearObsMap[x][y] > v:
-                nearObsMap[x][y] = v
-
-            relVec = getVec(xobs, yobs, x, y)
-            if nearObsMap[xobs][yobs] == 0 or (self.nearObsVec[xobs][yobs] & self.SimilarMask[relVec]) != 0:
-                self.nearObsVec[x][y] = (self.nearObsVec[x][y] | relVec)
-            # print('{} {} {} {:#X} {} {} {} {:#X}'.format(
-            #     xobs, yobs, nearObsMap[xobs][yobs], self.nearObsVec[xobs][yobs],
-            #     x, y, nearObsMap[x][y], self.nearObsVec[x][y]))
-
-        for x in range(0, mapWidth):
-            for y in range(0, mapHeight):
-                if mapData[x][y] == self.OBS_VALUE:
-                    nearObsMap[x][y] = 0
-
-        sqrt2 = math.sqrt(2)
-
-        for x in range(0, mapWidth):
-            for y in range(0, mapHeight):
-                if 0 <= nearObsMap[x][y] < self.BUBBLE_R:
-                    handleNearObs(x, y, x + 1, y, nearObsMap[x][y] + 1)
-                    handleNearObs(x, y, x - 1, y + 1, nearObsMap[x][y] + sqrt2)
-                    handleNearObs(x, y, x, y + 1, nearObsMap[x][y] + 1)
-                    handleNearObs(x, y, x + 1, y + 1, nearObsMap[x][y] + sqrt2)
-
-        # print('=======================')
-
-        for x in range(mapWidth - 1, -1, -1):
-            for y in range(mapHeight - 1, -1, -1):
-                if 0 <= nearObsMap[x][y] < self.BUBBLE_R:
-                    handleNearObs(x, y, x - 1, y, nearObsMap[x][y] + 1)
-                    handleNearObs(x, y, x + 1, y - 1, nearObsMap[x][y] + sqrt2)
-                    handleNearObs(x, y, x, y - 1, nearObsMap[x][y] + 1)
-                    handleNearObs(x, y, x - 1, y - 1, nearObsMap[x][y] + sqrt2)
-
-        self.nearObsMap = np.zeros((mapWidth, mapHeight), dtype=int)
-        self.nearObsMap.fill(-1)
-        for x in range(0, mapWidth):
-            for y in range(0, mapHeight):
-                if nearObsMap[x][y] < 1000:
-                    self.nearObsMap[x][y] = round(nearObsMap[x][y])
-
-
-    def updateNearObs3(self):
 
         t1 = time.time()
 
@@ -492,7 +380,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
         sumX = 0
         sumY = 0
         cnt = 0
-        def bfsObs(x, y, visit, box):
+        def dfsObs(x, y, visit, box):
             nonlocal sumX
             nonlocal sumY
             nonlocal cnt
@@ -506,7 +394,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                 # print("err {} {} {} {}".format(x, y, mapWidth, mapHeight))
                 return
 
-            if mapData[x][y] == self.OBS_VALUE and visit[x][y] == 0\
+            if mapData[x][y] == GridType.Obstacle and visit[x][y] == 0\
                     and box.widthWithX(x) <= 5 and box.heightWithY(y) <= 5:
                 cnt += 1
                 sumX += x
@@ -518,7 +406,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                     for ny in range(y - 1, y + 2):
                         if nx == x and ny == y:
                             continue
-                        bfsObs(nx, ny, visit, box)
+                        dfsObs(nx, ny, visit, box)
 
         self.obsCenter = set()
         for x in range(0, mapWidth):
@@ -527,7 +415,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                 parentY1[x][y] = y
                 parentX2[x][y] = x
                 parentY2[x][y] = y
-                if mapData[x][y] == self.OBS_VALUE:
+                if mapData[x][y] == GridType.Obstacle:
                     nearObsMap[x][y] = 0
                     nearObsMap1[x][y] = 0
                     nearObsMap2[x][y] = 0
@@ -535,7 +423,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                         sumX = sumY = cnt = 0
                         clusterIndex += 1
                         box = SimpleRect(x, y, x, y)
-                        bfsObs(x, y, visit, box)
+                        dfsObs(x, y, visit, box)
                         cx, cy = round(sumX / cnt), round(sumY / cnt)
                         clusterCenter.append([cx, cy])
                         self.obsCenter.add((cx, cy))
@@ -545,6 +433,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
 
         sqrt2 = math.sqrt(2)
 
+        # 膨胀操作，获得每个点的 bubble 值，并且获取两次膨胀的来源
         # 两次全遍历，更新两个主方向的值
 
         for x in range(0, mapWidth):
@@ -589,21 +478,22 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                     px2, py2 = parentX2[x][y], parentY2[x][y]
                     parentDist = math.hypot(px2 - px1, py2 - py1)
 
-                    if mapData[px1][py1] == self.OBS_VALUE and mapData[px2][py2] == self.OBS_VALUE:
+                    if mapData[px1][py1] == GridType.Obstacle and mapData[px2][py2] == GridType.Obstacle:
                         cx1, cy1 = clusterCenter[clusterGroup[px1][py1]]
                         cx2, cy2 = clusterCenter[clusterGroup[px2][py2]]
 
+                        # 两个障碍点之间拉线，满足条件则设置 Narrow 状态
                         narrowCnt = 0
                         for pt in GraphicAlgo.getBresenhamPoints8(QPoint(cx1, cy1),
                                                            QPoint(cx2, cy2)):
-                            if mapData[pt.x()][pt.y()] != self.OBS_VALUE:
+                            if mapData[pt.x()][pt.y()] != GridType.Obstacle:
                                 narrowCnt += 1
 
                         if parentDist <= 9 and narrowCnt <= 9:
                             for pt in GraphicAlgo.getBresenhamPoints4(QPoint(cx1, cy1),
                                                                QPoint(cx2, cy2)):
-                                if mapData[pt.x()][pt.y()] != self.OBS_VALUE:
-                                    mapData[pt.x()][pt.y()] = self.NARROW_VALUE
+                                if mapData[pt.x()][pt.y()] != GridType.Obstacle:
+                                    mapData[pt.x()][pt.y()] = GridType.Narrow
                                     # print("narrow {},{} from {},{} -> {},{}".format(pt.x(), pt.y(), cx1, cy1, cx2, cy2))
 
                 if nearObsMap[x][y] < 1000:
@@ -639,7 +529,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
 
         t2 = time.time()
 
-        def bfsObs(x, y, box):
+        def dfsObs(x, y, box):
             nonlocal visit
             nonlocal cnt
             nonlocal clusterIndex
@@ -651,7 +541,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
             if x < 0 or x >= mapWidth or y < 0 or y >= mapHeight:
                 return
 
-            if mapData[x][y] == self.OBS_VALUE and visit[x][y] == 0:
+            if mapData[x][y] == GridType.Obstacle and visit[x][y] == 0:
                 box.expand(x, y)
                 cnt += 1
                 visit[x][y] = 1
@@ -660,29 +550,29 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                     for ny in range(y - 1, y + 2):
                         if nx == x and ny == y:
                             continue
-                        bfsObs(nx, ny, box)
+                        dfsObs(nx, ny, box)
 
         for x in range(0, mapWidth):
             for y in range(0, mapHeight):
-                if mapData[x][y] == self.OBS_VALUE:
+                if mapData[x][y] == GridType.Obstacle:
                     if visit[x][y] == 0:
                         cnt = 0
                         clusterIndex += 1
                         box = SimpleRect(x, y, x, y)
-                        bfsObs(x, y, box)
+                        dfsObs(x, y, box)
                         clusterSize.append(cnt)
                         clusterSmallBox.append(box.height() <= 4 and box.width() <= 4)
 
         t3 = time.time()
 
         def smallObs(x, y):
-            rv = mapData[x][y] == self.OBS_VALUE and clusterSize[clusterGroup[x][y]] <= 10 and clusterSmallBox[clusterGroup[x][y]]
+            rv = mapData[x][y] == GridType.Obstacle and clusterSize[clusterGroup[x][y]] <= 10 and clusterSmallBox[clusterGroup[x][y]]
             if rv:
                 self.smallObsPts[x][y] = 1
             return rv
-            # return mapData[x][y] == self.OBS_VALUE
+            # return mapData[x][y] == GridType.Obstacle
 
-        def bfsChairs(x, y, pts):
+        def dfsChairs(x, y, pts):
             nonlocal visit
             nonlocal mapData
             nonlocal mapWidth
@@ -692,14 +582,14 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                 return
 
             if visit[x][y] == 0:
-                if mapData[x][y] == self.NARROW_VALUE or smallObs(x, y):
+                if mapData[x][y] == GridType.Narrow or smallObs(x, y):
                     visit[x][y] = 1
                     pts.append([float(x), float(y)])
                     for nx in range(x - 5, x + 6):
                         for ny in range(y - 5, y + 6):
                             if nx == x and ny == y:
                                 continue
-                            bfsChairs(nx, ny, pts)
+                            dfsChairs(nx, ny, pts)
 
         self.tmpMap = np.zeros((mapWidth, mapHeight), dtype=np.uint8)
         self.chairConvex = []
@@ -710,7 +600,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
             for y in range(0, mapHeight):
                 if visit[x][y] == 0 and smallObs(x, y):
                     pts = []
-                    bfsChairs(x, y, pts)
+                    dfsChairs(x, y, pts)
                     # print("start: {} {}, size: {}".format(x, y, len(pts)))
                     convexPoints = cv2.convexHull(np.asarray(pts, dtype=int))
                     area = cv2.contourArea(convexPoints)
@@ -752,7 +642,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
 
         corners = []
         def findCorner(xobs, yobs, x, y, r):
-            if self.map.mapData[x][y] == self.OBS_VALUE:
+            if self.map.mapData[x][y] == GridType.Obstacle:
                 corners.append((x, y))
 
         def handleCorner(xobs, yobs, x, y, r):
@@ -838,7 +728,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
                         # ndist = dist + offset[2] + self.NearObsCost[self.nearObsMap[nx][ny]] + self.NearCornerCost[self.nearCornerMap[nx][ny]]
                         ndist = dist + offset[2] + self.NearObsCost[self.nearObsMap[nx][ny]]
                         # if self.useNarrowCost and self.HasOppositeMask[self.nearObsVec[nx][ny]]:
-                        if self.useNarrowCost and self.map.mapData[nx][ny] == self.NARROW_VALUE:
+                        if self.useNarrowCost and self.map.mapData[nx][ny] == GridType.Narrow:
                             ndist = ndist + self.NarrowCost
                         # ndist = dist + offset[2] + self.NearObsCost[self.nearObsMap[nx][ny]] + self.nearCornerMap[nx][ny]
                         if self.dataExpand(nx, ny, ndist):
@@ -863,7 +753,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
             if self.nearObsMap[x][y] == 0:
                 nearObs = True
 
-        pts = self.getBresenhamPoints8(self.mousePosBeg, self.mousePosEnd)
+        pts = GraphicAlgo.getBresenhamPoints8(self.mousePosBeg, self.mousePosEnd)
         for pt in pts:
             self.roundingPoint(pt.x(), pt.y(), 3, checkObs)
             if nearObs:
@@ -930,7 +820,7 @@ class DenseObsFinder(GridCanvas, GridType, GraphicAlgo):
             if i >= lenp - 1:
                 break
             for j in range(i + 1, lenp):
-                for pt in self.getBresenhamPoints8(path[i], path[j]):
+                for pt in GraphicAlgo.getBresenhamPoints8(path[i], path[j]):
                     if self.nearObsMap[pt.x()][pt.y()] >= 0 or self.nearCornerMap[pt.x()][pt.y()] >= 0:
                         next = j
                         break

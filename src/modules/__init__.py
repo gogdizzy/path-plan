@@ -7,3 +7,4 @@ from .CoordTrans import CoordTrans
 from .FileParsers import *
 from .InternalDataTypes import *
 from .NavNormalParser import NavNormalParser
+from .RobotModel import RobotModel

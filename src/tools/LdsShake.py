@@ -155,5 +155,5 @@ if __name__ == "__main__":
 
     ldsShake = LdsShake(sys.argv[1])
     # ldsShake = LdsShake('/Users/guanxin/errlog/LDS对比测试数据分析/UltronSC/20240119/LDS-囚牛2# 抖动测试/R0875D35100047/反光纸/000009.20240117111928663_R0875D35100047_2024011722DEV/NAV_normal_m.log')
-    ldsShake.work(0)
+    ldsShake.work(1)
 

@@ -60,10 +60,11 @@ class GridMapPPM:
         all(all(self.mapData[x][y] == GridType.Default for x in range(0, self.mapWidth)) and (endY := y,) for y in range(self.mapHeight - 1, 0, -1))
 
         if startX != 0 or endX != self.mapWidth - 1 or startY != 0 or endY != self.mapHeight - 1:
+            oldMapData = self.mapData
             newMapData = np.zeros((endX - startX + 1, endY - startY + 1), dtype=int)
             for x in range(0, newMapData.shape[0]):
                 for y in range(0, newMapData.shape[1]):
-                    newMapData[x][y] = self.mapData[startX + x][startY + y]
+                    newMapData[x][y] = oldMapData[startX + x][startY + y]
             self.mapWidth = endX - startX + 1
             self.mapHeight = endY - startY + 1
             self.mapData = newMapData
