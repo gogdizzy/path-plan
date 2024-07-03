@@ -371,7 +371,7 @@ class DenseObsFinder(GridCanvas):
             #     xobs, yobs, nearObsMap1[xobs][yobs] if rightTop else nearObsMap2[xobs][yobs], self.nearObsVec[xobs][yobs],
             #     x, y, nearObsMap1[x][y] if rightTop else nearObsMap2[x][y], self.nearObsVec[x][y]))
 
-        # 对 obs 进行 BFS 搜索，最大范围是 5x5，聚为一类
+        # 对 obs 进行 DFS 搜索，最大范围是 5x5，聚为一类
         clusterIndex = 0
         clusterGroup = np.zeros((mapWidth, mapHeight), dtype=int)
         clusterCenter = [[0, 0]]
