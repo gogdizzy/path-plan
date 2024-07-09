@@ -46,10 +46,9 @@ def drawExtra(qp, data):
                 qp.drawRect(ROBOT_X + pt.x, ROBOT_Y + pt.y, 2, 2)
                 cnt += 1
 
-    # if cnt > 300:
-    #     print("pts: {}, filter: {}".format(len(data.points), cnt))
+    if cnt > 300:
+        print("pts: {}, filter: {}".format(len(data.points), cnt))
 
-    print("pts: {}".format(len(data.points)))
 
 def printInfo(qp, data):
 
@@ -73,10 +72,10 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
 
-    fileOpener = FileOpener(None, "GotoObsMapPlayer")
+    fileOpener = FileOpener(None, "LowObsMapPlayer")
     fileName = fileOpener.getPath()
     parser = NavNormalParser(fileName)
-    data = parser.getGotoObsPoints()
+    data = parser.getLowObsPoints()
 
     print(ColorControl.BrFgGreen)
     print("fileName: {}".format(fileName))

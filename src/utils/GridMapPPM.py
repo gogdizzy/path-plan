@@ -23,7 +23,7 @@ class GridMapPPM:
             self.mapData = np.zeros((self.mapWidth, self.mapHeight), dtype=int)
             for y in range(0, self.mapHeight):
                 for x in range(0, self.mapWidth):
-                    r, g, b = struct.unpack('bbb', file.read(3))
+                    r, g, b = struct.unpack('BBB', file.read(3))
                     if r == 0 and g == 0 and b == 0:
                         # print('{} {} {} {} {}'.format(x, y, r, g, b))
                         self.mapData[x][y] = GridType.Obstacle
@@ -38,14 +38,16 @@ class GridMapPPM:
             return
 
         with open(filename, mode="wb") as file:
-            file.write('P6\n')
-            file.write('{} {} 255\n'.format(self.mapWidth, self.mapHeight))
+            file.write(b'P6\n')
+            file.write('{} {} 255\n'.format(self.mapWidth, self.mapHeight).encode())
             for y in range(0, self.mapHeight):
                 for x in range(0, self.mapWidth):
-                    if self.mapData[x][y] == 0:
-                        file.write(struct.pack('bbb', 255, 255, 255))
+                    if self.mapData[x][y] == GridType.Obstacle:
+                        file.write(struct.pack('BBB', 0, 0, 0))
+                    elif self.mapData[x][y] == GridType.Space:
+                        file.write(struct.pack('BBB', 255, 255, 255))
                     else:
-                        file.write(struct.pack('bbb', 1, 1, 1))
+                        file.write(struct.pack('BBB', 128, 128, 128))
 
     def trimData(self):
 

@@ -56,6 +56,70 @@ class NavNormalParser:
 
         return res
 
+
+    def getGotoObsPointsBeforeMix(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "before mix" in line and "GotoFollowRouting" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[7] == "mix:":
+                        timestamp = int(parts[1])
+                        for i in range(8, len(parts) - 1):   # tail is space
+                            x, y = map(int, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                    res.append(TimeAndPoint2D(timestamp, points))
+
+        return res
+
+    def getGotoObsPointsAfterMix(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "after mix" in line and "GotoFollowRouting" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[7] == "mix:":
+                        timestamp = int(parts[1])
+                        for i in range(8, len(parts) - 1):   # tail is space
+                            x, y = map(int, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                    res.append(TimeAndPoint2D(timestamp, points))
+
+        return res
+
+    def getLowObsPoints(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "nearObs" in line and "LowObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "nearObs:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y = map(int, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                    res.append(TimeAndPoint2D(timestamp, points))
+
+        return res
+
     def getEasyStuckPoints(self):
 
         res = []

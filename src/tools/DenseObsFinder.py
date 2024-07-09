@@ -17,7 +17,7 @@ from src.algo import GraphicAlgo
 class DenseObsFinder(GridCanvas):
 
 
-    BUBBLE_R = 5
+    BUBBLE_R = 3
     POP_VALUE = -2
 
     NarrowCost = 100

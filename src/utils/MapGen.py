@@ -3,6 +3,7 @@ from PyQt5.QtCore import QPoint, Qt
 
 import sys
 
+from src.algo import GraphicAlgo
 from src.utils import GridType, GridCanvas, GridMapPPM, Colors
 
 
@@ -31,10 +32,10 @@ class MapGen(GridCanvas):
         for x in range(0, self.map.mapWidth):
             for y in range(0, self.map.mapHeight):
                 if mapData[x][y] != GridType.Default:
-                    self.drawPoint(x, y, self.DefaultObsColor)
+                    self.drawPoint(x, y, Colors.DefaultObsColor)
 
         if self.mouseDown:
-            self.drawPoints(self.getBresenhamPoints4(self.mousePosBeg, self.mousePosEnd), self.DefaultObsColor)
+            self.drawPoints(GraphicAlgo.getBresenhamPoints4(self.mousePosBeg, self.mousePosEnd), Colors.DefaultObsColor)
 
         self.drawLabel()
 
@@ -61,7 +62,7 @@ class MapGen(GridCanvas):
         self.mouseDown = False
 
         mapData = self.map.mapData
-        for pt in self.getBresenhamPoints(self.mousePosBeg, self.mousePosEnd):
+        for pt in GraphicAlgo.getBresenhamPoints8(self.mousePosBeg, self.mousePosEnd):
             mapData[pt.x()][pt.y()] = GridType.Obstacle
         self.update()
 
