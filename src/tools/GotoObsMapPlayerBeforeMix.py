@@ -76,7 +76,7 @@ if __name__ == '__main__':
     fileOpener = FileOpener(None, "GotoObsMapPlayer")
     fileName = fileOpener.getPath()
     parser = NavNormalParser(fileName)
-    data = parser.getGotoObsPoints()
+    data = parser.getGotoObsPointsBeforeMix()
 
     print(ColorControl.BrFgGreen)
     print("fileName: {}".format(fileName))
@@ -85,7 +85,7 @@ if __name__ == '__main__':
 
     ex = ObstaclePlayer(data, Point2D(ROBOT_X, ROBOT_Y))
     # ex.addCustomFunction(printInfo, 1)
-    #ex.addCustomFunction(drawNear, -1)
-    #ex.addCustomFunction(drawExtra, 2)
+    ex.addCustomFunction(drawNear, -1)
+    ex.addCustomFunction(drawExtra, 2)
 
     sys.exit(app.exec_())

@@ -1,5 +1,5 @@
 from src.geometry import Point2D
-from src.modules import TimeAndPoint2D, Pose2DAndValue
+from src.modules import TimeAndPoints, Pose2DAndValue
 
 
 class NavNormalParser:
@@ -31,7 +31,7 @@ class NavNormalParser:
                             x, y = map(int, parts[i].split(","))
                             points.append(Point2D(x, y))
 
-                    res.append(TimeAndPoint2D(timestamp, points))
+                    res.append(TimeAndPoints(timestamp, points))
 
         return res
 
@@ -52,7 +52,7 @@ class NavNormalParser:
                             x, y = map(int, parts[i].split(","))
                             points.append(Point2D(x, y))
 
-                    res.append(TimeAndPoint2D(timestamp, points))
+                    res.append(TimeAndPoints(timestamp, points))
 
         return res
 
@@ -74,7 +74,7 @@ class NavNormalParser:
                             x, y = map(int, parts[i].split(","))
                             points.append(Point2D(x, y))
 
-                    res.append(TimeAndPoint2D(timestamp, points))
+                    res.append(TimeAndPoints(timestamp, points))
 
         return res
 
@@ -95,7 +95,7 @@ class NavNormalParser:
                             x, y = map(int, parts[i].split(","))
                             points.append(Point2D(x, y))
 
-                    res.append(TimeAndPoint2D(timestamp, points))
+                    res.append(TimeAndPoints(timestamp, points))
 
         return res
 
@@ -113,10 +113,163 @@ class NavNormalParser:
                     if parts[6] == "nearObs:":
                         timestamp = int(parts[1])
                         for i in range(7, len(parts) - 1):   # tail is space
+                            x, y, v = map(int, parts[i].split(","))
+                            points.append(Pose2DAndValue(x, y, v))
+
+                    res.append(TimeAndPoints(timestamp, points))
+
+        return res
+
+    def getNewObs(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "newObs" in line and "LowObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "newObs:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y, v = map(int, parts[i].split(","))
+                            points.append(Pose2DAndValue(x, y, v))
+
+                        res.append(TimeAndPoints(timestamp, points))
+
+        return res
+
+
+    def getAllNearObs(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "allNearPts" in line and "LowObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "allNearPts:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
                             x, y = map(int, parts[i].split(","))
                             points.append(Point2D(x, y))
 
-                    res.append(TimeAndPoint2D(timestamp, points))
+                        res.append(TimeAndPoints(timestamp, points))
+
+        return res
+
+
+    def getNewLooseWireObs(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "newLooseWireObs" in line and "LowObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "newLooseWireObs:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y, v = map(int, parts[i].split(","))
+                            points.append(Pose2DAndValue(x, y, v))
+
+                        res.append(TimeAndPoints(timestamp, points))
+
+        return res
+
+
+    def getNewVlineObs(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "vlineObs" in line and "LowObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "vlineObs:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y, v = map(int, parts[i].split(","))
+                            points.append(Pose2DAndValue(x, y, v))
+
+                        res.append(TimeAndPoints(timestamp, points))
+
+        return res
+
+
+    def getNewVlineSpace(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "vlineSpace" in line and "LowObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "vlineSpace:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y, v = map(int, parts[i].split(","))
+                            points.append(Pose2DAndValue(x, y, v))
+
+                        res.append(TimeAndPoints(timestamp, points))
+
+        return res
+
+
+    def getHighObs(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "highObs" in line and "LowObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "highObs:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y, v = map(int, parts[i].split(","))
+                            points.append(Pose2DAndValue(x, y, v))
+
+                        res.append(TimeAndPoints(timestamp, points))
+
+        return res
+
+
+    def getVLineData(self):
+
+        res = []
+
+        with open(self.filename, mode="r") as file:
+
+            for line in file:
+
+                if "vlineData" in line and "LowObsMap" in line:
+                    points = []
+                    parts = line.split(" ")
+                    if parts[6] == "vlineData:":
+                        timestamp = int(parts[1])
+                        for i in range(7, len(parts) - 1):  # tail is space
+                            x, y = map(float, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                        res.append(TimeAndPoints(timestamp, points))
 
         return res
 
@@ -137,7 +290,7 @@ class NavNormalParser:
                             x, y = map(int, parts[i].split(","))
                             points.append(Point2D(x, y))
 
-                    res.append(TimeAndPoint2D(timestamp, points))
+                    res.append(TimeAndPoints(timestamp, points))
 
         return res
 
@@ -163,6 +316,8 @@ class NavNormalParser:
                     if avgCurrent > 50 and mbSpeed == mainBrushSpeed:
 
                         x = int(parts[offset + 22])
+                        if parts[offset + 23][-1] == ',':
+                            parts[offset + 23] = parts[offset + 23][0:-1]
                         y = int(parts[offset + 23])
 
                         res.append(Pose2DAndValue(x, y, avgCurrent))
@@ -186,7 +341,7 @@ class NavNormalParser:
                         x, y = map(int, parts[i].split(","))
                         points.append(Point2D(x, y))
 
-                res.append(TimeAndPoint2D(timestamp, points))
+                res.append(TimeAndPoints(timestamp, points))
 
         return res
 

@@ -77,6 +77,6 @@ if __name__ == '__main__':
 
     ex = ObstaclePlayer(data, Point2D(ROBOT_X, ROBOT_Y))
     # ex.addCustomFunction(drawOccupy, -1)
-    ex.addCustomFunction(drawBox, 1)
+    # ex.addCustomFunction(drawBox, 1)
 
     sys.exit(app.exec_())

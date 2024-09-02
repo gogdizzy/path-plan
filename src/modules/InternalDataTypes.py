@@ -1,5 +1,5 @@
 
-class TimeAndPoint2D:
+class TimeAndPoints:
 
     def __init__(self, timestamp = 0, points = None):
 

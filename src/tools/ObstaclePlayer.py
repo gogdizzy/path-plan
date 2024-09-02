@@ -125,8 +125,6 @@ class ObstaclePlayer(GridCanvas):
             self.qp.drawRect(self.robotX + pt.x, self.robotY + pt.y, 2, 2)
 
 
-
-
     def addCustomFunction(self, fun, layer):
 
         self.customFunctions.setdefault(layer, []).append(fun)
@@ -135,7 +133,14 @@ class ObstaclePlayer(GridCanvas):
 
         print("framNo:", self.frameNo)
 
+        data = self.data[self.frameNo]
+
         self.drawLabel()
+
+        for layer, funs in self.customFunctions.items():
+            if layer == -100:
+                for fun in funs:
+                    fun(self.qp, data)
 
         h = self.frameGeometry().height()
         self.qp.translate(0, h)
@@ -143,10 +148,8 @@ class ObstaclePlayer(GridCanvas):
 
         self.qp.setBrush(Qt.NoBrush)
 
-        data = self.data[self.frameNo]
-
         for layer, funs in self.customFunctions.items():
-            if layer < 0:
+            if -100 < layer < 0:
                 for fun in funs:
                     fun(self.qp, data)
 

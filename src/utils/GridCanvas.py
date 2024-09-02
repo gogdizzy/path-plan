@@ -8,7 +8,7 @@ from src.utils import Colors
 
 class GridCanvas(QWidget):
 
-    TileSize = 5
+    TileSize = 10
     FrameSpeed = 30
     MapWidth = 512
     MapHeight = 256
