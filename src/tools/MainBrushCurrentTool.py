@@ -60,6 +60,7 @@ class MainBrushCurrentTool(GridCanvas):
         self.labelColor = QColor(0, 0, 0)
 
         size = self.size()
+        print("size: {}, {}".format(size.width(), size.height()))
         w = size.width()
         h = size.height()
 

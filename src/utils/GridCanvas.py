@@ -104,10 +104,10 @@ class GridCanvas(QWidget):
 
         pen = QPen(color, 2)
         self.qp.setPen(pen)
-        self.qp.drawLine(x0 * self.TileSize + self.TileSize / 2,
-                         y0 * self.TileSize + self.TileSize / 2,
-                         x1 * self.TileSize + self.TileSize / 2,
-                         y1 * self.TileSize + self.TileSize / 2)
+        self.qp.drawLine(round(x0 * self.TileSize + self.TileSize / 2),
+                         round(y0 * self.TileSize + self.TileSize / 2),
+                         round(x1 * self.TileSize + self.TileSize / 2),
+                         round(y1 * self.TileSize + self.TileSize / 2))
 
 
     def getOpenFileName(self):

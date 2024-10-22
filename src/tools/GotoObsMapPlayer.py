@@ -84,7 +84,7 @@ if __name__ == '__main__':
     print(ColorControl.End)
 
     ex = ObstaclePlayer(data, Point2D(ROBOT_X, ROBOT_Y))
-    # ex.addCustomFunction(printInfo, 1)
+    ex.addCustomFunction(printInfo, 1)
     #ex.addCustomFunction(drawNear, -1)
     #ex.addCustomFunction(drawExtra, 2)
 

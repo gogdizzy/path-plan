@@ -1,5 +1,18 @@
+from enum import IntEnum
+
 from src.geometry import Point2D
 from src.modules import TimeAndPoints, Pose2DAndValue
+
+class NavNormalTypes(IntEnum):
+
+    LowObsMapAllNearObs = 0
+    LowObsMapNearObs = 1
+    LowObsMapNewObs = 2
+    LowObsMapNewLooseWireObs = 3
+    LowObsMapNewVlineObs = 4
+    LowObsMapNewVlineSpace = 5
+    LowObsMapNewVlineData = 6
+    LowObsMapNewHighObs = 7
 
 
 class NavNormalParser:
@@ -7,6 +20,138 @@ class NavNormalParser:
     def __init__(self, filename):
 
         self.filename = filename
+        self.subParsers = dict()
+        self.subParsers[NavNormalTypes.LowObsMapAllNearObs] = NavNormalParser.parseLowObsMapAllNearObs
+        self.subParsers[NavNormalTypes.LowObsMapNearObs] = NavNormalParser.parseLowObsMapNearObs
+        self.subParsers[NavNormalTypes.LowObsMapNewObs] = NavNormalParser.parseLowObsMapNewObs
+        self.subParsers[NavNormalTypes.LowObsMapNewLooseWireObs] = NavNormalParser.parseLowObsMapNewLooseWireObs
+        self.subParsers[NavNormalTypes.LowObsMapNewVlineObs] = NavNormalParser.parseLowObsMapNewVlineObs
+        self.subParsers[NavNormalTypes.LowObsMapNewVlineSpace] = NavNormalParser.parseLowObsMapNewVlineSpace
+        self.subParsers[NavNormalTypes.LowObsMapNewVlineData] = NavNormalParser.parseLowObsMapNewVlineData
+        self.subParsers[NavNormalTypes.LowObsMapNewHighObs] = NavNormalParser.parseLowObsMapNewHighObs
+
+    def parse(self, dic):
+
+        items = dic.items()
+        subParsers = self.subParsers
+        with open(self.filename, mode="r") as file:
+            for line in file:
+                for tp, data in items:
+                    subParsers[tp](line, data)
+
+    @staticmethod
+    def parseLowObsMapAllNearObs(line, data):
+
+        if "allNearPts" in line and "LowObsMap" in line:
+            points = []
+            parts = line.split(" ")
+            if parts[6] == "allNearPts:":
+                timestamp = int(parts[1])
+                for i in range(7, len(parts) - 1):  # tail is space
+                    x, y = map(int, parts[i].split(","))
+                    points.append(Point2D(x, y))
+
+                data.append(TimeAndPoints(timestamp, points))
+
+    @staticmethod
+    def parseLowObsMapNearObs(line, data):
+
+        if "nearObs" in line and "LowObsMap" in line:
+            points = []
+            parts = line.split(" ")
+            if parts[6] == "nearObs:":
+                timestamp = int(parts[1])
+                for i in range(7, len(parts) - 1):  # tail is space
+                    x, y, v = map(int, parts[i].split(","))
+                    points.append(Pose2DAndValue(x, y, v))
+
+                data.append(TimeAndPoints(timestamp, points))
+
+
+    @staticmethod
+    def parseLowObsMapNewObs(line, data):
+
+        if "newObs" in line and "LowObsMap" in line:
+            points = []
+            parts = line.split(" ")
+            if parts[6] == "newObs:":
+                timestamp = int(parts[1])
+                for i in range(7, len(parts) - 1):  # tail is space
+                    x, y, v = map(int, parts[i].split(","))
+                    points.append(Pose2DAndValue(x, y, v))
+
+                data.append(TimeAndPoints(timestamp, points))
+
+    @staticmethod
+    def parseLowObsMapNewLooseWireObs(line, data):
+
+        if "newLooseWireObs" in line and "LowObsMap" in line:
+            points = []
+            parts = line.split(" ")
+            if parts[6] == "newLooseWireObs:":
+                timestamp = int(parts[1])
+                for i in range(7, len(parts) - 1):  # tail is space
+                    x, y, v = map(int, parts[i].split(","))
+                    points.append(Pose2DAndValue(x, y, v))
+
+                data.append(TimeAndPoints(timestamp, points))
+
+    @staticmethod
+    def parseLowObsMapNewVlineObs(line, data):
+
+        if "vlineObs" in line and "LowObsMap" in line:
+            points = []
+            parts = line.split(" ")
+            if parts[6] == "vlineObs:":
+                timestamp = int(parts[1])
+                for i in range(7, len(parts) - 1):  # tail is space
+                    x, y, v = map(int, parts[i].split(","))
+                    points.append(Pose2DAndValue(x, y, v))
+
+                data.append(TimeAndPoints(timestamp, points))
+
+    @staticmethod
+    def parseLowObsMapNewVlineSpace(line, data):
+
+        if "vlineSpace" in line and "LowObsMap" in line:
+            points = []
+            parts = line.split(" ")
+            if parts[6] == "vlineSpace:":
+                timestamp = int(parts[1])
+                for i in range(7, len(parts) - 1):  # tail is space
+                    x, y, v = map(int, parts[i].split(","))
+                    points.append(Pose2DAndValue(x, y, v))
+
+                data.append(TimeAndPoints(timestamp, points))
+
+    @staticmethod
+    def parseLowObsMapNewVlineData(line, data):
+
+        if "vlineData" in line and "LowObsMap" in line:
+            points = []
+            parts = line.split(" ")
+            if parts[6] == "vlineData:":
+                timestamp = int(parts[1])
+                for i in range(7, len(parts) - 1):  # tail is space
+                    x, y = map(float, parts[i].split(","))
+                    points.append(Point2D(x, y))
+
+                data.append(TimeAndPoints(timestamp, points))
+
+    @staticmethod
+    def parseLowObsMapNewHighObs(line, data):
+
+        if "highObs" in line and "LowObsMap" in line:
+            points = []
+            parts = line.split(" ")
+            if parts[6] == "highObs:":
+                timestamp = int(parts[1])
+                for i in range(7, len(parts) - 1):  # tail is space
+                    x, y, v = map(int, parts[i].split(","))
+                    points.append(Pose2DAndValue(x, y, v))
+
+                data.append(TimeAndPoints(timestamp, points))
+
 
     def getCamera2DPoints(self):
 

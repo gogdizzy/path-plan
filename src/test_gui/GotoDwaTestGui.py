@@ -38,13 +38,14 @@ class GotoDwaTestGui(GridCanvas):
 
     def initData(self):
 
-        startTime = 1677000
+        startTime = 0
 
         fileOpener = FileOpener(self, "GotoDwaPath")
 
+        filename = fileOpener.getPath()
+
         tc = TimeCost()
 
-        filename = fileOpener.getPath()
         self.parser = Bin10Parser(filename, startTime)
 
 

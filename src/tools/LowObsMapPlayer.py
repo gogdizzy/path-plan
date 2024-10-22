@@ -6,7 +6,9 @@ from PyQt5.QtGui import QPen, QColor, QFont
 from PyQt5.QtWidgets import QApplication
 
 from src.geometry import *
-from src.modules import FileOpener, NavNormalParser, ColorControl, TimeAndPoints
+from src.modules import FileOpener, NavNormalParser, ColorControl, TimeAndPoints, TimeCost, Bin10Parser
+from src.modules.DirectoryOpener import DirectoryOpener
+from src.modules.NavNormalParser import NavNormalTypes
 from src.tools import ObstaclePlayer
 from src.utils import Colors
 
@@ -18,16 +20,16 @@ ROBOT_SIDE_Y = 800
 ROBOT_SIDE_WIDTH = 350
 ROBOT_SIDE_HEIGHT = 100
 
-
-newObsList = None
-newLowObsList = None
-newProbableWireList = None
-newLooseWireObsList = None
-newVlineObsList = None
-newVlineSpaceList = None
-highObsList = None
-vlineList = None
-allNearObsList = None
+nearObsList = []
+newObsList = []
+newLowObsList = []
+newProbableWireList = []
+newLooseWireObsList = []
+newVlineObsList = []
+newVlineSpaceList = []
+highObsList = []
+vlineList = []
+allNearObsList = []
 
 def drawNearRange(qp, data):
 
@@ -180,6 +182,117 @@ def drawVLineData(qp, data):
                 if h < 4:
                     w4 = 0
 
+                if 1 <= w1 <= 4 and w2 >= 3:
+                    foundWire = True
+
+            if foundWire:
+                qp.setPen(QPen(Colors.DefaultTextColor, 2))
+                font = QFont()
+                font.setPointSize(20)
+                qp.setFont(font)
+                qp.drawText(ROBOT_SIDE_X + ROBOT_SIDE_WIDTH - 50,
+                            ROBOT_SIDE_Y + 130,
+                            "M!h6")
+            break
+
+def drawVLineData2(qp, data):
+
+    global vlineList
+
+    if len(vlineList) <= 0:
+        return
+
+    for i in range(len(vlineList) - 1, -1, -1):
+        if data.timestamp - 200 < vlineList[i].timestamp <= data.timestamp:
+            line = [-1] * 50
+            lowH = [100] * 50
+            highH = [0] * 50
+            qp.setPen(QPen(QColor(255, 0, 0), 1))
+            validCnt = 0
+            points = vlineList[i].points
+
+            for k in range(len(points)):
+                pt = points[k]
+                if pt.x == 0 and pt.y == 0:
+                    continue
+
+                validCnt += 1
+                x = int(pt.x / 3)
+                if pt.y >= 3:
+                    lowH[x] = min(lowH[x], pt.y)
+                    highH[x] = max(highH[x], pt.y)
+
+                if pt.y <= 2:
+                    qp.setPen(QPen(QColor(0, 0, 0), 1))
+                elif pt.y <= 5:
+                    qp.setPen(QPen(QColor(128, 0, 0), 1))
+                else:
+                    qp.setPen(QPen(QColor(255, 0, 0), 1))
+
+                qp.drawRect(round(ROBOT_SIDE_X + ROBOT_SIDE_WIDTH + pt.x),
+                            round(ROBOT_SIDE_Y + pt.y),
+                            2, 2)
+
+            startIdx = -1
+            for k in range(len(points)):
+                pt = points[k]
+                if pt.x == 0 and pt.y == 0:
+                    continue
+
+                x = int(pt.x / 3)
+                if pt.y <= 2:
+                    startIdx = k
+                elif highH[x] > 20:
+                    break
+                elif 4 <= pt.y <= 15 and highH[x] < 20 and startIdx >= 0:
+                    line[x] = max(line[x], 1)
+                elif 5 < pt.y <= 10:
+                    line[x] = max(line[x], 2)
+                elif 10 < pt.y <= 15:
+                    line[x] = max(line[x], 3)
+                else:
+                    line[x] = max(line[x], 4)
+
+            print("vlineTime: {} vlineSize: {}".format(vlineList[i].timestamp, len(vlineList[i].points)))
+            print(vlineList[i].points)
+
+            if validCnt <= 10:
+                break
+
+            print(line)
+            foundWire = False
+            w0 = 0
+            w1 = 0
+            w2 = 0
+            w4 = 0
+            for k in range(len(line)):
+                h = line[k]
+                if h <= 0:
+                    if w1 > 0:
+                        w2 += 1
+                    else:
+                        w0 += 1
+                elif h >= 4:
+                    break
+                    # w4 += 1
+                    # if w4 >= 3:
+                    #     break
+                    #
+                    # print("diff {}".format(highH[k] - lowH[k]))
+                    # if 0 <= highH[k] - lowH[k] < 10:
+                    #     if w2 > 0:
+                    #         w2 = 0
+                    #     w1 += 1
+                    # else:
+                    #     break
+                else:
+                    if w2 > 0:
+                        w2 = 0
+                    w1 += 1
+
+                if h < 4:
+                    w4 = 0
+
                 if 1 <= w1 <= 6 and w2 >= 3:
                     print("k = {}".format(k))
                     foundWire = True
@@ -192,7 +305,6 @@ def drawVLineData(qp, data):
                 qp.drawText(ROBOT_SIDE_X + ROBOT_SIDE_WIDTH - 50,
                             ROBOT_SIDE_Y + 130,
                             "M!h6")
-
             break
 
 
@@ -354,29 +466,52 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
 
-    fileOpener = FileOpener(None, "LowObsMapPlayer")
-    fileName = fileOpener.getPath()
-    parser = NavNormalParser(fileName)
-    data = parser.getLowObsPoints()
-    newObsList = parser.getNewObs()
+    dirOpener = DirectoryOpener(None, "LowObsMapPlayer")
+    dirName = dirOpener.getPath()
+
+    print(ColorControl.BrFgGreen)
+    print(f"DirPath: {dirName}")
+
+    navNormalFile = dirName + "/NAV_normal_m.log"
+    print(f"NavNormalFile: {navNormalFile}")
+
+    tc = TimeCost()
+    parser = NavNormalParser(navNormalFile)
+
+    parser.parse({NavNormalTypes.LowObsMapNearObs : nearObsList,
+                  NavNormalTypes.LowObsMapNewObs : newObsList,
+                  NavNormalTypes.LowObsMapNewLooseWireObs : newLooseWireObsList,
+                  NavNormalTypes.LowObsMapNewVlineObs : newVlineObsList,
+                  NavNormalTypes.LowObsMapNewVlineSpace : newVlineSpaceList,
+                  NavNormalTypes.LowObsMapNewVlineData : vlineList,
+                  NavNormalTypes.LowObsMapNewHighObs : highObsList})
+
+    # data = parser.getLowObsPoints()
+    # newObsList = parser.getNewObs()
     splitObs()
-    newLooseWireObsList = parser.getNewLooseWireObs()
-    newVlineObsList = parser.getNewVlineObs()
-    newVlineSpaceList = parser.getNewVlineSpace()
-    highObsList = parser.getHighObs()
-    vlineList = parser.getVLineData()
-    allNearObsList = parser.getAllNearObs()
+    # newLooseWireObsList = parser.getNewLooseWireObs()
+    # newVlineObsList = parser.getNewVlineObs()
+    # newVlineSpaceList = parser.getNewVlineSpace()
+    # highObsList = parser.getHighObs()
+    # vlineList = parser.getVLineData()
+    # allNearObsList = parser.getAllNearObs()
+
+    print("  open time cost: {}".format(tc.countDown()))
+
+    # bin10File = dirName + "/NAV_binId10.log"
+    # print(f"Bin10File: {bin10File}")
+    # bin10Parser = Bin10Parser(bin10File)
+    #
+    # print("  open time cost: {}".format(tc.countDown()))
 
     print("haha {}".format(len(newObsList)))
     print("haha2 {}".format(len(newLooseWireObsList)))
     print("haha3 {}".format(len(highObsList)))
 
-    print(ColorControl.BrFgGreen)
-    print("fileName: {}".format(fileName))
-    print("record count: {}".format(len(data)))
+    print("record count: {}".format(len(nearObsList)))
     print(ColorControl.End)
 
-    ex = ObstaclePlayer(data, Point2D(ROBOT_X, ROBOT_Y))
+    ex = ObstaclePlayer(nearObsList, Point2D(ROBOT_X, ROBOT_Y))
     # ex.addCustomFunction(printInfo, 1)
     ex.addCustomFunction(drawColorTable, -100)
     ex.addCustomFunction(drawNearRange, -1)
@@ -388,10 +523,14 @@ if __name__ == '__main__':
     ex.addCustomFunction(drawHighObs, 5)
     ex.addCustomFunction(drawNewLooseWireObs, 6)
     ex.addCustomFunction(drawNewProbableWireObs, 7)
+
+
     ex.addCustomFunction(drawNewVlineSpace, 8)
     ex.addCustomFunction(drawNewVlineObs, 9)
 
     ex.addCustomFunction(drawNearObs, 10)
+
+
 
     ex.addCustomFunction(drawRobotSide, 20)
     ex.addCustomFunction(drawVLineData, 21)
