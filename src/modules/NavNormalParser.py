@@ -5,6 +5,7 @@ from src.modules import TimeAndPoints, Pose2DAndValue
 
 class NavNormalTypes(IntEnum):
 
+    LowObsMapInvalid = -1
     LowObsMapAllNearObs = 0
     LowObsMapNearObs = 1
     LowObsMapNewObs = 2
@@ -32,12 +33,33 @@ class NavNormalParser:
 
     def parse(self, dic):
 
-        items = dic.items()
-        subParsers = self.subParsers
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
             for line in file:
-                for tp, data in items:
-                    subParsers[tp](line, data)
+                if "LowObsMap" not in line:
+                    continue
+                parts = line.split(" ")
+                match parts[6]:
+                    case "allNearPts:":
+                        tp = NavNormalTypes.LowObsMapAllNearObs
+                    case "nearObs:":
+                        tp = NavNormalTypes.LowObsMapNearObs
+                    case "newObs:":
+                        tp = NavNormalTypes.LowObsMapNewObs
+                    case "newLooseWireObs:":
+                        tp = NavNormalTypes.LowObsMapNewLooseWireObs
+                    case "vlineObs:":
+                        tp = NavNormalTypes.LowObsMapNewVlineObs
+                    case "vlineSpace:":
+                        tp = NavNormalTypes.LowObsMapNewVlineSpace
+                    case "vlineData:":
+                        tp = NavNormalTypes.LowObsMapNewVlineData
+                    case "highObs:":
+                        tp = NavNormalTypes.LowObsMapNewHighObs
+                    case _:
+                        tp = NavNormalTypes.LowObsMapInvalid
+
+                if tp != NavNormalTypes.LowObsMapInvalid:
+                    self.subParsers[tp](line, dic[tp])
 
     @staticmethod
     def parseLowObsMapAllNearObs(line, data):
