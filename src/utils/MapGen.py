@@ -35,7 +35,7 @@ class MapGen(GridCanvas):
                     self.drawPoint(x, y, Colors.DefaultObsColor)
 
         if self.mouseDown:
-            self.drawPoints(GraphicAlgo.getBresenhamPoints4(self.mousePosBeg, self.mousePosEnd), Colors.DefaultObsColor)
+            self.drawPoints(GraphicAlgo.getBresenhamPoints4d(self.mousePosBeg, self.mousePosEnd), Colors.DefaultObsColor)
 
         self.drawLabel()
 
@@ -62,7 +62,7 @@ class MapGen(GridCanvas):
         self.mouseDown = False
 
         mapData = self.map.mapData
-        for pt in GraphicAlgo.getBresenhamPoints8(self.mousePosBeg, self.mousePosEnd):
+        for pt in GraphicAlgo.getBresenhamPoints4d(self.mousePosBeg, self.mousePosEnd):
             mapData[pt.x()][pt.y()] = GridType.Obstacle
         self.update()
 

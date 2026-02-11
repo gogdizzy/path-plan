@@ -9,7 +9,7 @@ from src.geometry import *
 from src.modules import FileOpener, NavNormalParser, ColorControl, TimeAndPoints, TimeCost, Bin10Parser
 from src.modules.DirectoryOpener import DirectoryOpener
 from src.modules.NavNormalParser import NavNormalTypes
-from src.tools import ObstaclePlayer
+from src.tools.ObstaclePlayer import ObstaclePlayer
 from src.utils import Colors
 
 ROBOT_X = 1000
@@ -30,6 +30,17 @@ newVlineSpaceList = []
 highObsList = []
 vlineList = []
 allNearObsList = []
+camera2DList = []
+
+
+def getRecentData(begTs, endTs, obsList):
+
+    for i in range(len(obsList) - 1, -1, -1):
+        if begTs < obsList[i].timestamp <= endTs:
+            return obsList[i]
+
+    return None
+
 
 def drawNearRange(qp, data):
 
@@ -89,10 +100,17 @@ def printInfo(qp, data):
 
 def drawOccupy(qp, data):
 
-    radius = 200
+    radius = 175 + 20
     qp.setPen(QPen(QColor(200, 200, 200), 1))
     for pt in data.points:
         qp.drawEllipse(QPoint(ROBOT_X + pt.x, ROBOT_Y + pt.y), radius, radius)
+
+    radius = 175 + 40
+    qp.setPen(QPen(QColor(200, 200, 200), 1))
+    camera2DObs = getRecentData(data.timestamp - 200, data.timestamp, camera2DList)
+    if camera2DObs is not None:
+        for pt in camera2DObs.points:
+            qp.drawEllipse(QPoint(ROBOT_X + pt.x, ROBOT_Y + pt.y), radius, radius)
 
 
 def drawVLineData(qp, data):
@@ -109,9 +127,17 @@ def drawVLineData(qp, data):
             highH = [0] * 50
             qp.setPen(QPen(QColor(255, 0, 0), 1))
             validCnt = 0
+
+            validBegPoint = None
+            validEndPoint = None
+
             for pt in vlineList[i].points:
                 if pt.x == 0 and pt.y == 0:
                     continue
+
+                validEndPoint = pt
+                if validBegPoint is None:
+                    validBegPoint = pt
 
                 validCnt += 1
 
@@ -142,6 +168,34 @@ def drawVLineData(qp, data):
                 qp.drawRect(round(ROBOT_SIDE_X + ROBOT_SIDE_WIDTH + pt.x),
                             round(ROBOT_SIDE_Y + pt.y),
                             2, 2)
+
+            if validBegPoint != validEndPoint:
+                # Ax + By + C = 0
+                A = validEndPoint.y - validBegPoint.y
+                B = validBegPoint.x - validEndPoint.x
+                C = validBegPoint.y * validEndPoint.x - validBegPoint.x * validEndPoint.y
+                normV = math.hypot(A, B)
+                isALine = True
+                for pt in vlineList[i].points:
+                    disToLine = math.fabs(A * pt.x + B * pt.y + C) / normV
+                    if disToLine > 3:
+                        isALine = False
+                        break
+
+                if math.fabs(B) < 60:
+                    isALine = False
+
+                # if isALine:
+                #     qp.setPen(QPen(QColor(255, 0, 0), 2))
+                    # qp.drawRect(round(ROBOT_SIDE_X + ROBOT_SIDE_WIDTH + validBegPoint.x),
+                    #             round(ROBOT_SIDE_Y + validBegPoint.y),
+                    #             150, 1)
+                    # qp.drawLine(QPoint(round(ROBOT_SIDE_X + ROBOT_SIDE_WIDTH + validBegPoint.x),
+                    #                    round(ROBOT_SIDE_Y + validBegPoint.y)),
+                    #             QPoint(round(ROBOT_SIDE_X + ROBOT_SIDE_WIDTH + validEndPoint.x),
+                    #                    round(ROBOT_SIDE_Y + validEndPoint.y)))
+
+
             print("vlineTime: {} vlineSize: {}".format(vlineList[i].timestamp, len(vlineList[i].points)))
             print(vlineList[i].points)
 
@@ -339,13 +393,13 @@ def drawNearObs(qp, data):
 
 def drawObs(qp, data, obsList, color, name):
 
-    for i in range(len(obsList) - 1, -1, -1):
-        if data.timestamp - 200 < obsList[i].timestamp <= data.timestamp:
-            qp.setPen(QPen(color, 1))
-            for pt in obsList[i].points:
-                qp.drawRect(ROBOT_X + pt.x, ROBOT_Y + pt.y, 2, 2)
-            print("{} Time: {} ptsSize: {}".format(name, obsList[i].timestamp, len(obsList[i].points)))
-            break
+    obs = getRecentData(data.timestamp - 200, data.timestamp, obsList)
+    if obs is not None:
+        qp.setPen(QPen(color, 1))
+        for pt in obs.points:
+            qp.drawRect(ROBOT_X + pt.x, ROBOT_Y + pt.y, 2, 2)
+        print("{} Time: {} ptsSize: {}".format(name, obs.timestamp, len(obs.points)))
+
 
 
 newLowObsColor = QColor(204, 51, 51)
@@ -355,6 +409,7 @@ newVlineColor = QColor(68, 68, 187)
 newVlineSpaceColor = QColor(255, 255, 255)
 highObsColor = QColor(0, 255, 0)
 allNearObsColor = QColor(200, 200, 200)
+camera2DColor = QColor(160, 0, 160)
 
 def drawNewLowObs(qp, data):
 
@@ -404,7 +459,11 @@ def drawAllNearObs(qp, data):
 
     drawObs(qp, data, allNearObsList, allNearObsColor, "allNearObs")
 
+def drawCamera2DPoints(qp, data):
 
+    global camera2DList
+
+    drawObs(qp, data, camera2DList, camera2DColor, "camera2D")
 
 def drawRobotSide(qp, data):
 
@@ -478,6 +537,8 @@ if __name__ == '__main__':
     tc = TimeCost()
     parser = NavNormalParser(navNormalFile)
 
+    camera2DList = parser.getCamera2DPointsFarFromSlam()
+
     parser.parse({NavNormalTypes.LowObsMapNearObs : nearObsList,
                   NavNormalTypes.LowObsMapNewObs : newObsList,
                   NavNormalTypes.LowObsMapNewLooseWireObs : newLooseWireObsList,
@@ -529,6 +590,7 @@ if __name__ == '__main__':
     ex.addCustomFunction(drawNewVlineObs, 9)
 
     ex.addCustomFunction(drawNearObs, 10)
+    ex.addCustomFunction(drawCamera2DPoints, 11)
 
 
 

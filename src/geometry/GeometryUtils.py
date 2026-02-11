@@ -41,3 +41,4 @@ def distanceSquare(p1, p2):
     dy = p1.y - p2.y
     return dx * dx + dy * dy
 
+

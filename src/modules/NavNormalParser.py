@@ -1,5 +1,5 @@
 from enum import IntEnum
-
+from collections import deque
 from src.geometry import Point2D
 from src.modules import TimeAndPoints, Pose2DAndValue
 
@@ -14,6 +14,7 @@ class NavNormalTypes(IntEnum):
     LowObsMapNewVlineSpace = 5
     LowObsMapNewVlineData = 6
     LowObsMapNewHighObs = 7
+    Camera2DPoints = 8
 
 
 class NavNormalParser:
@@ -30,9 +31,11 @@ class NavNormalParser:
         self.subParsers[NavNormalTypes.LowObsMapNewVlineSpace] = NavNormalParser.parseLowObsMapNewVlineSpace
         self.subParsers[NavNormalTypes.LowObsMapNewVlineData] = NavNormalParser.parseLowObsMapNewVlineData
         self.subParsers[NavNormalTypes.LowObsMapNewHighObs] = NavNormalParser.parseLowObsMapNewHighObs
+        # self.subParsers[NavNormalTypes.Camera2DPoints] = NavNormalParser.parseLowObsMapNewHighObs
 
     def parse(self, dic):
 
+        subParsers = self.subParsers
         with open(self.filename, mode="r", encoding="utf-8") as file:
             for line in file:
                 if "LowObsMap" not in line:
@@ -59,13 +62,13 @@ class NavNormalParser:
                         tp = NavNormalTypes.LowObsMapInvalid
 
                 if tp != NavNormalTypes.LowObsMapInvalid:
-                    self.subParsers[tp](line, dic[tp])
+                    subParsers[tp](line, dic[tp])
 
     @staticmethod
     def parseLowObsMapAllNearObs(line, data):
 
-        if "allNearPts" in line and "LowObsMap" in line:
-            points = []
+        # if "allNearPts" in line and "LowObsMap" in line:
+            points = deque()
             parts = line.split(" ")
             if parts[6] == "allNearPts:":
                 timestamp = int(parts[1])
@@ -78,8 +81,8 @@ class NavNormalParser:
     @staticmethod
     def parseLowObsMapNearObs(line, data):
 
-        if "nearObs" in line and "LowObsMap" in line:
-            points = []
+        # if "nearObs" in line and "LowObsMap" in line:
+            points = deque()
             parts = line.split(" ")
             if parts[6] == "nearObs:":
                 timestamp = int(parts[1])
@@ -93,8 +96,8 @@ class NavNormalParser:
     @staticmethod
     def parseLowObsMapNewObs(line, data):
 
-        if "newObs" in line and "LowObsMap" in line:
-            points = []
+        # if "newObs" in line and "LowObsMap" in line:
+            points = deque()
             parts = line.split(" ")
             if parts[6] == "newObs:":
                 timestamp = int(parts[1])
@@ -107,8 +110,8 @@ class NavNormalParser:
     @staticmethod
     def parseLowObsMapNewLooseWireObs(line, data):
 
-        if "newLooseWireObs" in line and "LowObsMap" in line:
-            points = []
+        # if "newLooseWireObs" in line and "LowObsMap" in line:
+            points = deque()
             parts = line.split(" ")
             if parts[6] == "newLooseWireObs:":
                 timestamp = int(parts[1])
@@ -121,8 +124,8 @@ class NavNormalParser:
     @staticmethod
     def parseLowObsMapNewVlineObs(line, data):
 
-        if "vlineObs" in line and "LowObsMap" in line:
-            points = []
+        # if "vlineObs" in line and "LowObsMap" in line:
+            points = deque()
             parts = line.split(" ")
             if parts[6] == "vlineObs:":
                 timestamp = int(parts[1])
@@ -135,8 +138,8 @@ class NavNormalParser:
     @staticmethod
     def parseLowObsMapNewVlineSpace(line, data):
 
-        if "vlineSpace" in line and "LowObsMap" in line:
-            points = []
+        # if "vlineSpace" in line and "LowObsMap" in line:
+            points = deque()
             parts = line.split(" ")
             if parts[6] == "vlineSpace:":
                 timestamp = int(parts[1])
@@ -149,8 +152,8 @@ class NavNormalParser:
     @staticmethod
     def parseLowObsMapNewVlineData(line, data):
 
-        if "vlineData" in line and "LowObsMap" in line:
-            points = []
+        # if "vlineData" in line and "LowObsMap" in line:
+            points = deque()
             parts = line.split(" ")
             if parts[6] == "vlineData:":
                 timestamp = int(parts[1])
@@ -163,8 +166,8 @@ class NavNormalParser:
     @staticmethod
     def parseLowObsMapNewHighObs(line, data):
 
-        if "highObs" in line and "LowObsMap" in line:
-            points = []
+        # if "highObs" in line and "LowObsMap" in line:
+            points = deque()
             parts = line.split(" ")
             if parts[6] == "highObs:":
                 timestamp = int(parts[1])
@@ -177,14 +180,14 @@ class NavNormalParser:
 
     def getCamera2DPoints(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "Camera2DBumper" in line and "Input data" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "data:":
                         timestamp = int(parts[0].split(",")[1])
@@ -202,16 +205,43 @@ class NavNormalParser:
 
         return res
 
+    def getCamera2DPointsFarFromSlam(self):
+
+        res = deque()
+
+        with open(self.filename, mode="r", encoding="utf-8") as file:
+
+            for line in file:
+
+                if "camera2DFarFromSlam2" in line:
+                    points = deque()
+                    parts = line.split(" ")
+                    if parts[5] == "camera2DFarFromSlam2":
+                        timestamp = int(parts[0].split(",")[1])
+                        for i in range(7, len(parts) - 1):   # tail is space
+                            x, y = map(int, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                    elif parts[6] == "camera2DFarFromSlam2":
+                        timestamp = int(parts[1])
+                        for i in range(8, len(parts) - 1):   # tail is space
+                            x, y = map(int, parts[i].split(","))
+                            points.append(Point2D(x, y))
+
+                    res.append(TimeAndPoints(timestamp, points))
+
+        return res
+
     def getGotoObsPoints(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "nearObs" in line and "GotoObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "nearObs:":
                         timestamp = int(parts[1])
@@ -226,14 +256,14 @@ class NavNormalParser:
 
     def getGotoObsPointsBeforeMix(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "before mix" in line and "GotoFollowRouting" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[7] == "mix:":
                         timestamp = int(parts[1])
@@ -247,14 +277,14 @@ class NavNormalParser:
 
     def getGotoObsPointsAfterMix(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "after mix" in line and "GotoFollowRouting" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[7] == "mix:":
                         timestamp = int(parts[1])
@@ -268,14 +298,14 @@ class NavNormalParser:
 
     def getLowObsPoints(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "nearObs" in line and "LowObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "nearObs:":
                         timestamp = int(parts[1])
@@ -289,14 +319,14 @@ class NavNormalParser:
 
     def getNewObs(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "newObs" in line and "LowObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "newObs:":
                         timestamp = int(parts[1])
@@ -311,14 +341,14 @@ class NavNormalParser:
 
     def getAllNearObs(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "allNearPts" in line and "LowObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "allNearPts:":
                         timestamp = int(parts[1])
@@ -333,14 +363,14 @@ class NavNormalParser:
 
     def getNewLooseWireObs(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "newLooseWireObs" in line and "LowObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "newLooseWireObs:":
                         timestamp = int(parts[1])
@@ -355,14 +385,14 @@ class NavNormalParser:
 
     def getNewVlineObs(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "vlineObs" in line and "LowObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "vlineObs:":
                         timestamp = int(parts[1])
@@ -377,14 +407,14 @@ class NavNormalParser:
 
     def getNewVlineSpace(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "vlineSpace" in line and "LowObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "vlineSpace:":
                         timestamp = int(parts[1])
@@ -399,14 +429,14 @@ class NavNormalParser:
 
     def getHighObs(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "highObs" in line and "LowObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "highObs:":
                         timestamp = int(parts[1])
@@ -421,14 +451,14 @@ class NavNormalParser:
 
     def getVLineData(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "vlineData" in line and "LowObsMap" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "vlineData:":
                         timestamp = int(parts[1])
@@ -442,14 +472,14 @@ class NavNormalParser:
 
     def getEasyStuckPoints(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
                 if "EasyStuckPoint" in line and "StereoVision" in line:
-                    points = []
+                    points = deque()
                     parts = line.split(" ")
                     if parts[6] == "EasyStuckPoint:":
                         timestamp = int(parts[1])
@@ -463,9 +493,9 @@ class NavNormalParser:
 
     def getMainBrushData(self, mainBrushSpeed):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
@@ -494,13 +524,13 @@ class NavNormalParser:
 
     def getBin5LaserPoints(self):
 
-        res = []
+        res = deque()
 
-        with open(self.filename, mode="r") as file:
+        with open(self.filename, mode="r", encoding="utf-8") as file:
 
             for line in file:
 
-                points = []
+                points = deque()
                 parts = line.split(" ")
                 if parts[6] != "":
                     timestamp = int(parts[0])

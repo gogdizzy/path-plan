@@ -76,6 +76,7 @@ class RoundData:
         degIdxStr, difStr, avgStr = getLinePart3(s, 6 + offset, 10 + offset, 11 + offset)
         degIdx = int(degIdxStr[1:-1])
         dif = float(difStr[4:-1])
+        # print(degIdx, dif)
         self.diff[degIdx] = dif
         if (self.dist < 0):
             self.dist = float(avgStr[4:-2])
@@ -154,6 +155,6 @@ class LdsShake:
 if __name__ == "__main__":
 
     ldsShake = LdsShake(sys.argv[1])
-    # ldsShake = LdsShake('/Users/guanxin/errlog/LDS对比测试数据分析/UltronSC/20240119/LDS-囚牛2# 抖动测试/R0875D35100047/反光纸/000009.20240117111928663_R0875D35100047_2024011722DEV/NAV_normal_m.log')
-    ldsShake.work(1)
+    # ldsShake = LdsShake('/Users/guanxin/errlog/LDS对比测试数据分析/囚牛/20241128/紧贴板子前面放三根柱子/000394.20241126103202629_R65EBD44600010_2024112623DEV/NAV_normal_m.log')
+    ldsShake.work(0)
 

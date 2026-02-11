@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QApplication
 
 from src.geometry import *
 from src.modules import FileOpener, NavNormalParser, ColorControl
-from src.tools import ObstaclePlayer
+from src.tools.ObstaclePlayer import ObstaclePlayer
 
 ROBOT_X = 1000
 ROBOT_Y = 750

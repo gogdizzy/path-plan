@@ -1,0 +1,1247 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+MemoryUsageViewer.py
+1> 是一个 gui 界面的工具，使用 pyqt5 进行开发
+2> 可以提供一个 gui 选择窗口，选择一张 ppm 地图，ppm 格式可以参考 utils/GridMapPPM.py 的打开方式，或者直接调用这个类也行，不需要 trim 周围
+3> 打开 ppm 地图以后，需要显示在 gui 背景上，如果超过屏幕，需要有滚动条，可以查看整个地图，记住地图的坐标系，左下角到右上角对应的是 [-512, -512] 到 [511, 511]
+4> 另外提供一个按钮 AddLog，点击以后，也是打开一个选择窗口，可以选择添加日志，把日志添加进来，添加的过程中可以显示加载的进度条
+5> 日志格式有几种：
+    a. 1207,2614350 T3935 VisionStructLight::VisionStructLight::PrintMemoryUsage:1580 [info] [PL6] VisionObs-LOOSEWIRE map this 0x7f84c14750 range=[0 0 1023 1023] center=[0 0] use memory 0
+     日志格式说明：
+       这种日志可以通过关键字 PrintMemoryUsage 抽取
+       第一个逗号后面是时间戳
+       [PL6] 后面是地图名称，例如这个是"VisionObs-LOOSEWIRE"
+       this 后面是地图的内存地址
+       use memory 后面是地图使用的内存大小
+     b. 1239, 2614357 T3962 ClusterGridMapX::SetAll:384 [info] [PL6] ClusterGridMapImpl::SetAll this 0x7f80e0f610 prevBlockCount: 0 to 0, maxBlockCount 128 releaseMem 0
+       日志格式说明：
+        这种日志可以通过关键字 ClusterGridMapX::SetAll 抽取
+        第一个逗号后面是时间戳，注意这个日志和上面有区别，第一个逗号后面还有个空格
+        this 后面是地图的内存地址，对于这种操作，可以认为地图被清空了
+     c. 1240, 2614357 T3962 ClusterGridMapX::At:338 [info] [PL6] ClusterGridMapImpl::At NewBlock this 0x7f84c13310 x=515, y=509, blockStart(512 448) tableIdx=120, blockCount=53, maxBlockCount=128, mapRange=[0 0 1023 1023]
+       日志格式说明：
+        这种日志可以通过关键字 "ClusterGridMapImpl::At NewBlock" 抽取
+        第一个逗号后面是时间戳，注意这个日志和上面有区别，第一个逗号后面还有个空格
+        this 后面是地图的内存地址，对于这种操作，可以认为地图新开辟了一小块内存
+        blockStart 后面是新开辟内存的起始坐标
+        mapRange 后面是整个地图范围
+          对于[0 0 1023 1023]，比例是1：1，我需要你在 gui 界面上画一个对应起点的，宽高为 64 的正方形，这个正方形用半透明色填充，还可以看到地图背景
+          对于[0 0 2559 2559]，比例需要折算，起点和宽高都要除以 2.5，画一个相应起点的，宽高的正方形，这个正方形用半透明色填充，还可以看到地图背景
+     d. 1242, 2614420 T3935 ClusterGridMapX::Set:652 [info] [PL6] ClusterGridMapImpl::Set NewBlock this 0x7f84c142d0 x=1201, y=1204, blockStart(1152 1152) tableIdx=738, blockCount=395, maxBlockCount=800 mapRange=[0 0 2559 2559]
+       日志格式说明：
+        这种日志可以通过关键字 "ClusterGridMapImpl::Set NewBlock" 抽取
+        第一个逗号后面是时间戳，注意这个日志和上面有区别，第一个逗号后面还有个空格
+        this 后面是地图的内存地址，对于这种操作，可以认为地图新开辟了一小块内存
+        blockStart 后面是新开辟内存的起始坐标
+        mapRange 后面是整个地图范围
+          对于[0 0 1023 1023]，比例是1：1，我需要你在 gui 界面上画一个对应起点的，宽高为 64 的正方形，这个正方形用半透明色填充，还可以看到地图背景
+          对于[0 0 2559 2559]，比例需要折算，起点和宽高都要除以 2.5，画一个相应起点的，宽高的正方形，这个正方形用半透明色填充，还可以看到地图背景
+     e. 88503,4970881 T1484 SLAMAlgorithm::SLAMAlgorithm::RecordSLAMPos:132 [info] [PL9] 1650,-278,94.66
+       日志格式说明：
+        这种日志可以通过关键字 "SLAMAlgorithm::RecordSLAMPos" 抽取
+        第一个逗号后面是时间戳
+        [PL9] 后面是机器人的位置坐标，x,y,theta，不过单位是毫米，需要除以50，转换成地图上的坐标
+6> 你只需要提取日志的关键信息，例如时间，地图名称，内存地址，操作类型，坐标，范围等
+7> 然后在 gui 界面上显示出来当前机器所在位置，机器用一个绿色的圆表示，机器朝向可以用从机器中心伸出去的一根射线表示
+8> 在 gui 界面上，需要有一个时间轴，可以鼠标拖动，看不同的时间机器的位置和内存分配的情况
+9> 你可以使用任何你觉得合适的颜色和样式来，直接在操作界面有 CheckBox，可以选择某一种地图（所有需要显示的地图都在 PrintMemoryUsage 中，不在这个里面的 this 指针可能对应一个临时文件，不需要显示）
+"""
+
+import sys
+import re
+import math
+import os
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QPushButton,
+                             QVBoxLayout, QHBoxLayout, QFileDialog, QProgressBar,
+                             QGraphicsView, QGraphicsScene, QLabel, QSlider,
+                             QCheckBox, QScrollArea, QFrame)
+from PyQt5.QtCore import Qt, QTimer, QPointF, QSettings
+from PyQt5.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QBrush
+import numpy as np
+from src.utils.GridMapPPM import GridMapPPM
+
+
+class CustomGraphicsView(QGraphicsView):
+    """自定义图形视图类，用于处理鼠标移动事件"""
+
+    def __init__(self, scene, coord_label, ppm_map_ref):
+        super().__init__(scene)
+        self.coord_label = coord_label
+        self.ppm_map_ref = ppm_map_ref  # 使用引用来访问ppm_map
+
+    def mouseMoveEvent(self, event):
+        """处理鼠标移动事件，显示坐标"""
+        # 获取鼠标在视图中的位置
+        view_pos = event.pos()
+        # 转换为场景坐标
+        scene_pos = self.mapToScene(view_pos)
+
+        # 转换为地图坐标系（从像素坐标到[-512, -512]到[511, 511]）
+        if self.ppm_map_ref is not None and self.ppm_map_ref.mapWidth > 0:
+            # 从像素坐标转换为地图坐标
+            map_x = (scene_pos.x() / self.ppm_map_ref.mapWidth) * 1023 - 512
+            map_y = 511 - (scene_pos.y() / self.ppm_map_ref.mapHeight) * 1023
+
+            # 更新坐标标签
+            self.coord_label.setText(f"Mouse Position: ({map_x:.1f}, {map_y:.1f})")
+
+        # 调用父类的mouseMoveEvent以保持原有功能
+        super().mouseMoveEvent(event)
+
+
+class MemoryUsageViewer(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Memory Usage Viewer")
+        self.setGeometry(100, 100, 1200, 800)
+
+        # 数据存储
+        self.ppm_map = None
+        self.logs = []  # 存储所有解析后的日志
+        self.time_logs = {}  # 按时间索引的日志
+        self.maps_info = {}  # 存储地图信息
+        self.robot_positions = {}  # 存储机器人位置
+        self.current_time_index = 0
+        self.map_checkboxes = {}
+
+        # 机器人轨迹相关
+        self.robot_path_items = []  # 存储机器人轨迹图形项
+
+        # 缓存地图Pixmap以提高性能
+        self.cached_pixmap = None
+        self.cached_map_width = 0
+        self.cached_map_height = 0
+
+        # 初始化UI
+        self.init_ui()
+
+    def init_ui(self):
+        # 主窗口部件
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        # 主布局
+        main_layout = QVBoxLayout(central_widget)
+
+        # 按钮布局
+        button_layout = QHBoxLayout()
+
+        # 加载地图按钮
+        self.load_map_btn = QPushButton("Load PPM Map")
+        self.load_map_btn.clicked.connect(self.load_ppm_map)
+        button_layout.addWidget(self.load_map_btn)
+
+        # 添加日志按钮
+        self.add_log_btn = QPushButton("Add Log")
+        self.add_log_btn.clicked.connect(self.add_log)
+        button_layout.addWidget(self.add_log_btn)
+
+        # 进度条（初始隐藏）
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        button_layout.addWidget(self.progress_bar)
+
+        main_layout.addLayout(button_layout)
+
+        # 坐标显示标签
+        self.coord_label = QLabel("Mouse Position: (0, 0)")
+        main_layout.addWidget(self.coord_label)
+
+        # 时间轴
+        time_layout = QHBoxLayout()
+        self.time_label = QLabel("Time: 0")
+        self.time_slider = QSlider(Qt.Horizontal)
+        self.time_slider.setMinimum(0)
+        self.time_slider.setMaximum(0)
+        self.time_slider.valueChanged.connect(self.on_time_changed)
+        time_layout.addWidget(self.time_label)
+        time_layout.addWidget(self.time_slider)
+        main_layout.addLayout(time_layout)
+
+        # 地图选择区域
+        self.map_selection_frame = QFrame()
+        self.map_selection_layout = QVBoxLayout(self.map_selection_frame)
+        self.map_selection_layout.addWidget(QLabel("Maps:"))
+        main_layout.addWidget(self.map_selection_frame)
+
+        # 图形视图
+        self.graphics_scene = QGraphicsScene()
+        self.graphics_view = CustomGraphicsView(self.graphics_scene, self.coord_label, self.ppm_map)
+        self.graphics_view.setRenderHint(QPainter.Antialiasing)
+        self.graphics_view.setMouseTracking(True)
+
+        # 滚动区域
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidget(self.graphics_view)
+        self.scroll_area.setWidgetResizable(True)
+        main_layout.addWidget(self.scroll_area)
+
+    def load_ppm_map(self):
+        """加载PPM地图文件"""
+        # 使用QSettings存储和获取上次目录
+        settings = QSettings("MemoryUsageViewer", "PathPlan")
+        last_path = settings.value("last_ppm_directory", "")
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select PPM Map", last_path, "All Files (*)")
+
+        if file_path:
+            # 保存所选文件的目录
+            settings.setValue("last_ppm_directory", os.path.dirname(file_path))
+
+            self.ppm_map = GridMapPPM()
+            # 不需要trim周围
+            self.ppm_map.loadData(file_path, trim=False)
+            self.display_map()
+
+    def display_map(self):
+        """在图形视图中显示地图"""
+        if self.ppm_map is None:
+            return
+
+        # 检查是否需要重新生成Pixmap
+        if (self.cached_pixmap is None or
+            self.cached_map_width != self.ppm_map.mapWidth or
+            self.cached_map_height != self.ppm_map.mapHeight):
+
+            # 创建QImage
+            width, height = self.ppm_map.mapWidth, self.ppm_map.mapHeight
+            image = QImage(width, height, QImage.Format_RGB32)
+
+            # 填充图像数据
+            for x in range(width):
+                for y in range(height):
+                    # 注意：PPM坐标系与QImage坐标系不同，需要转换
+                    # PPM中y=0是最上面一行，而QImage中y=0是最上面一行
+                    value = self.ppm_map.mapData[x][y]
+                    if value == 1:  # 障碍物
+                        color = QColor(0, 0, 0)  # 黑色
+                    elif value == -1:  # 空闲空间
+                        color = QColor(255, 255, 255)  # 白色
+                    else:  # 默认
+                        color = QColor(128, 128, 128)  # 灰色
+
+                    image.setPixelColor(x, y, color)
+
+            # 缓存Pixmap
+            self.cached_pixmap = QPixmap.fromImage(image)
+            self.cached_map_width = width
+            self.cached_map_height = height
+
+        # 添加Pixmap到场景
+        self.graphics_scene.clear()
+        self.graphics_scene.addPixmap(self.cached_pixmap)
+
+        # 清空机器人轨迹项列表
+        self.robot_path_items = []
+
+        # 设置场景大小
+        self.graphics_scene.setSceneRect(0, 0, self.cached_map_width, self.cached_map_height)
+
+        # 更新自定义视图中的ppm_map引用
+        self.graphics_view.ppm_map_ref = self.ppm_map
+
+        # 添加坐标系信息
+        self.add_coordinate_system()
+
+    def mouse_move_event(self, event):
+        """处理鼠标移动事件，显示坐标"""
+        # 获取鼠标在视图中的位置
+        view_pos = event.pos()
+        # 转换为场景坐标
+        scene_pos = self.graphics_view.mapToScene(view_pos)
+
+        # 转换为地图坐标系（从像素坐标到[-512, -512]到[511, 511]）
+        if self.ppm_map is not None:
+            # 从像素坐标转换为地图坐标
+            map_x = (scene_pos.x() / self.ppm_map.mapWidth) * 1023 - 512
+            map_y = 511 - (scene_pos.y() / self.ppm_map.mapHeight) * 1023
+
+            # 更新坐标标签
+            self.coord_label.setText(f"Mouse Position: ({map_x:.1f}, {map_y:.1f})")
+
+        # 调用父类的mouseMoveEvent以保持原有功能
+        super(QGraphicsView, self.graphics_view).mouseMoveEvent(event)
+
+    def add_coordinate_system(self):
+        """添加坐标系信息"""
+        # 地图坐标系: 左下角[-512, -512]到右上角[511, 511]
+        # 需要绘制坐标轴和标签
+        if self.ppm_map is None:
+            return
+
+        width, height = self.ppm_map.mapWidth, self.ppm_map.mapHeight
+        pen = QPen(QColor(255, 0, 0, 128))  # 半透明红色
+        pen.setWidth(2)
+
+        # 绘制中心点(0,0)
+        center_x = width // 2
+        center_y = height // 2
+
+        # 绘制坐标轴
+        # X轴
+        self.graphics_scene.addLine(0, center_y, width, center_y, pen)
+        # Y轴
+        self.graphics_scene.addLine(center_x, 0, center_x, height, pen)
+
+        # 添加坐标标签
+        # 由于这是一个示例，这里简单添加几个标签
+        font = self.graphics_scene.font()
+        font.setPointSize(10)
+
+        # 中心点标签
+        text = self.graphics_scene.addText("(0,0)", font)
+        text.setPos(center_x + 5, center_y + 5)
+        text.setDefaultTextColor(QColor(255, 0, 0, 128))
+
+        # 添加其他标签
+        text = self.graphics_scene.addText("(-512,-512)", font)
+        text.setPos(5, height - 20)
+        text.setDefaultTextColor(QColor(255, 0, 0, 128))
+
+        text = self.graphics_scene.addText("(511,511)", font)
+        text.setPos(width - 80, 5)
+        text.setDefaultTextColor(QColor(255, 0, 0, 128))
+
+    def add_log(self):
+        """添加日志文件"""
+        # 使用QSettings存储和获取上次目录
+        settings = QSettings("MemoryUsageViewer", "PathPlan")
+        last_path = settings.value("last_log_directory", "")
+
+        file_paths, _ = QFileDialog.getOpenFileNames(self, "Select Log Files", last_path, "Log Files (*)")
+
+        if file_paths:
+            # 保存所选文件的目录
+            settings.setValue("last_log_directory", os.path.dirname(file_paths[0]))
+
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setValue(0)
+            self.progress_bar.setMaximum(len(file_paths))
+
+            # 使用定时器避免界面冻结
+            self.log_files = file_paths
+            self.current_log_index = 0
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.process_next_log)
+            self.timer.start(100)  # 每100毫秒处理一个文件
+
+    def process_next_log(self):
+        """处理下一个日志文件"""
+        if self.current_log_index < len(self.log_files):
+            file_path = self.log_files[self.current_log_index]
+            self.parse_log_file(file_path)
+            self.current_log_index += 1
+            self.progress_bar.setValue(self.current_log_index)
+        else:
+            # 处理完成
+            self.timer.stop()
+            self.progress_bar.setVisible(False)
+            self.update_time_slider()
+            self.update_map_checkboxes()
+            # 确保更新显示
+            self.update_display()
+
+    def parse_log_file(self, file_path):
+        """解析日志文件"""
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                line_count = 0
+                parsed_count = 0
+                for line in f:
+                    line_count += 1
+                    if self.parse_log_line(line.strip()):
+                        parsed_count += 1
+                print(f"Parsed {parsed_count}/{line_count} lines from {file_path}")
+        except Exception as e:
+            print(f"Error parsing log file {file_path}: {e}")
+
+    def parse_log_line(self, line):
+        """解析单行日志"""
+        # 添加调试信息，查看是否进入此函数
+        # print(f"Parsing line: {line[:100]}..." if len(line) > 100 else f"Parsing line: {line}")
+
+        if "PrintMemoryUsage" in line:
+            result = self.parse_print_memory_usage(line)
+            return result
+        elif "ClusterGridMapX::SetAll" in line:
+            result = self.parse_set_all(line)
+            return result
+        elif "ClusterGridMapImpl::At NewBlock" in line:
+            result = self.parse_at_new_block(line)
+            return result
+        elif "ClusterGridMapImpl::Set NewBlock" in line:
+            result = self.parse_set_new_block(line)
+            return result
+        elif "SLAMAlgorithm::RecordSLAMPos" in line:
+            result = self.parse_slam_position(line)
+            return result
+        return False
+
+    def parse_print_memory_usage(self, line):
+        """解析PrintMemoryUsage日志"""
+        # 示例: 1207,2614350 T3935 VisionStructLight::VisionStructLight::PrintMemoryUsage:1580 [info] [PL6] VisionObs-LOOSEWIRE map this 0x7f84c14750 range=[0 0 1023 1023] center=[0 0] use memory 0
+        # 或者: 1559,3653880 T2905 VisionStructLight::VisionStructLight::PrintMemoryUsage:1623 [info] [PL6] SpaceMap map this 0x7f92c1a250 range=[0 0 1023 1023] use memory 0
+        if "PrintMemoryUsage" not in line:
+            return False
+
+        try:
+            # 找到第一个逗号的位置
+            first_comma = line.find(',')
+            if first_comma == -1:
+                return False
+
+            # 从第一个逗号后开始查找时间戳
+            # 跳过逗号后的空格（如果有）
+            start_pos = first_comma + 1
+            while start_pos < len(line) and line[start_pos] == ' ':
+                start_pos += 1
+
+            # 查找下一个空格或制表符作为时间戳结束位置
+            end_pos = start_pos
+            while end_pos < len(line) and line[end_pos] not in [' ', '\t']:
+                end_pos += 1
+
+            # 提取时间戳
+            timestamp_str = line[start_pos:end_pos]
+            timestamp = float(timestamp_str)
+
+            # 查找 PL 标签
+            pl_start = line.find('[PL')
+            if pl_start == -1:
+                return False
+
+            # 提取 PL 编号
+            pl_end = line.find(']', pl_start)
+            if pl_end == -1:
+                return False
+
+            pl_number = line[pl_start+3:pl_end]
+
+            # 查找地图名称 (在PL标签后查找地图名称)
+            # 格式: [PL6] SpaceMap map this ...
+            map_name_start = pl_end + 2  # 跳过 '] '
+            map_name_end = line.find(' map ', map_name_start)
+            if map_name_end == -1:
+                return False
+
+            map_name = line[map_name_start:map_name_end].strip()
+
+            # 查找 this 指针
+            this_start = line.find('this ')
+            if this_start == -1:
+                return False
+
+            mem_addr_start = this_start + 5  # 跳过 'this '
+            mem_addr_end = line.find(' ', mem_addr_start)
+            if mem_addr_end == -1:
+                mem_addr_end = len(line)
+
+            mem_addr = line[mem_addr_start:mem_addr_end].strip()
+
+            # 查找 range
+            range_start = line.find('range=[')
+            if range_start == -1:
+                return False
+
+            range_start += 7  # 跳过 'range=['
+            range_end = line.find(']', range_start)
+            if range_end == -1:
+                return False
+
+            range_str = line[range_start:range_end]
+            range_vals = list(map(int, range_str.split()))
+
+            # 查找内存大小
+            memory_start = line.find('use memory ')
+            if memory_start == -1:
+                return False
+
+            memory_start += 11  # 跳过 'use memory '
+            memory_end = memory_start
+            while memory_end < len(line) and line[memory_end].isdigit():
+                memory_end += 1
+
+            memory_size = int(line[memory_start:memory_end])
+
+            log_entry = {
+                'type': 'memory_usage',
+                'timestamp': timestamp,
+                'pl_number': pl_number,
+                'map_name': map_name,
+                'mem_addr': mem_addr,
+                'range': range_vals,
+                'memory_size': memory_size
+            }
+
+            self.logs.append(log_entry)
+            self.add_to_time_logs(timestamp, log_entry)
+
+            # 更新地图信息，包括地图名称
+            if mem_addr not in self.maps_info:
+                self.maps_info[mem_addr] = {
+                    'name': map_name,
+                    'pl_number': pl_number,
+                    'ranges': []
+                }
+            else:
+                # 如果已经存在该地址的地图信息，更新地图名称
+                self.maps_info[mem_addr]['name'] = map_name
+
+            print(f"Parsed memory usage: time={timestamp}, map={map_name}, addr={mem_addr}")
+            return True
+        except (ValueError, IndexError) as e:
+            # 忽略无法解析的行
+            print(f"Warning: Could not parse PrintMemoryUsage line: {line[:100]}... Error: {e}")
+            return False
+
+    def parse_set_all(self, line):
+        """解析ClusterGridMapX::SetAll日志"""
+        # 示例: 1239, 2614357 T3962 ClusterGridMapX::SetAll:384 [info] [PL6] ClusterGridMapImpl::SetAll this 0x7f80e0f610 prevBlockCount: 0 to 0, maxBlockCount 128 releaseMem 0
+        # 或者: 657, 3635740 T2550 ClusterGridMapX::SetAll:384 [info] [PL6] ClusterGridMapImpl::SetAll this 0x7f92c1a250 prevBlockCount: 0 to 0, maxBlockCount 128 releaseMem 0
+        if "ClusterGridMapX::SetAll" not in line:
+            return False
+
+        try:
+            # 找到第一个逗号的位置
+            first_comma = line.find(',')
+            if first_comma == -1:
+                return False
+
+            # 从第一个逗号后开始查找时间戳
+            # 跳过逗号后的空格（如果有）
+            start_pos = first_comma + 1
+            while start_pos < len(line) and line[start_pos] == ' ':
+                start_pos += 1
+
+            # 查找下一个空格或制表符作为时间戳结束位置
+            end_pos = start_pos
+            while end_pos < len(line) and line[end_pos] not in [' ', '\t']:
+                end_pos += 1
+
+            # 提取时间戳
+            timestamp_str = line[start_pos:end_pos]
+            timestamp = float(timestamp_str)
+
+            # 查找 PL 标签
+            pl_start = line.find('[PL')
+            if pl_start == -1:
+                return False
+
+            # 提取 PL 编号
+            pl_end = line.find(']', pl_start)
+            if pl_end == -1:
+                return False
+
+            pl_number = line[pl_start+3:pl_end]
+
+            # 查找 this 指针
+            this_start = line.find('this ')
+            if this_start == -1:
+                return False
+
+            mem_addr_start = this_start + 5  # 跳过 'this '
+            mem_addr_end = line.find(' ', mem_addr_start)
+            if mem_addr_end == -1:
+                mem_addr_end = len(line)
+
+            mem_addr = line[mem_addr_start:mem_addr_end].strip()
+
+            log_entry = {
+                'type': 'set_all',
+                'timestamp': timestamp,
+                'pl_number': pl_number,
+                'mem_addr': mem_addr
+            }
+
+            self.logs.append(log_entry)
+            self.add_to_time_logs(timestamp, log_entry)
+            print(f"Parsed SetAll: time={timestamp}, addr={mem_addr}")
+            return True
+        except (ValueError, IndexError) as e:
+            # 忽略无法解析的行
+            print(f"Warning: Could not parse SetAll line: {line[:100]}... Error: {e}")
+            return False
+
+    def parse_at_new_block(self, line):
+        """解析ClusterGridMapImpl::At NewBlock日志"""
+        # 示例: 1240, 2614357 T3962 ClusterGridMapX::At:338 [info] [PL6] ClusterGridMapImpl::At NewBlock this 0x7f84c13310 x=515, y=509, blockStart(512 448) tableIdx=120, blockCount=53, maxBlockCount=128, mapRange=[0 0 1023 1023]
+        # 或者: 1240, 2614357 T3962 ClusterGridMapX::At:338 [info] [PL6] ClusterGridMapImpl::At NewBlock this 0x7f84c13310 x=515, y=509, blockStart(512 448) tableIdx=120, blockCount=53, maxBlockCount=128 mapRange=[0 0 2559 2559]
+        if "ClusterGridMapImpl::At NewBlock" not in line:
+            return False
+
+        try:
+            # 找到第一个逗号的位置
+            first_comma = line.find(',')
+            if first_comma == -1:
+                return False
+
+            # 从第一个逗号后开始查找时间戳
+            # 跳过逗号后的空格（如果有）
+            start_pos = first_comma + 1
+            while start_pos < len(line) and line[start_pos] == ' ':
+                start_pos += 1
+
+            # 查找下一个空格或制表符作为时间戳结束位置
+            end_pos = start_pos
+            while end_pos < len(line) and line[end_pos] not in [' ', '\t']:
+                end_pos += 1
+
+            # 提取时间戳
+            timestamp_str = line[start_pos:end_pos]
+            timestamp = float(timestamp_str)
+
+            # 查找 PL 标签
+            pl_start = line.find('[PL')
+            if pl_start == -1:
+                return False
+
+            # 提取 PL 编号
+            pl_end = line.find(']', pl_start)
+            if pl_end == -1:
+                return False
+
+            pl_number = line[pl_start+3:pl_end]
+
+            # 查找 this 指针
+            this_start = line.find('this ')
+            if this_start == -1:
+                return False
+
+            mem_addr_start = this_start + 5  # 跳过 'this '
+            mem_addr_end = line.find(' ', mem_addr_start)
+            if mem_addr_end == -1:
+                mem_addr_end = len(line)
+
+            mem_addr = line[mem_addr_start:mem_addr_end].strip()
+
+            # 查找坐标 (x, y)
+            coords_start = line.find('x=')
+            coords_end = line.find(',', coords_start)
+            x = int(line[coords_start+2:coords_end])
+
+            coords_start = coords_end + 1
+            coords_end = line.find(' ', coords_start)
+            y = int(line[coords_start:coords_end])
+
+            # 查找 blockStart
+            block_start_start = line.find('blockStart(')
+            if block_start_start == -1:
+                return False
+
+            block_start_start += 11  # 跳过 'blockStart('
+            block_start_end = line.find(')', block_start_start)
+            if block_start_end == -1:
+                return False
+
+            block_start_str = line[block_start_start:block_start_end]
+            block_start_coords = list(map(int, block_start_str.split()))
+
+            # 查找 mapRange
+            range_start = line.find('mapRange=[')
+            if range_start == -1:
+                return False
+
+            range_start += 10  # 跳过 'mapRange=['
+            range_end = line.find(']', range_start)
+            if range_end == -1:
+                return False
+
+            range_str = line[range_start:range_end]
+            range_vals = list(map(int, range_str.split()))
+
+            log_entry = {
+                'type': 'at_new_block',
+                'timestamp': timestamp,
+                'pl_number': pl_number,
+                'mem_addr': mem_addr,
+                'block_start': (block_start_coords[0], block_start_coords[1]),
+                'range': range_vals
+            }
+
+            self.logs.append(log_entry)
+            self.add_to_time_logs(timestamp, log_entry)
+
+            # 更新地图信息
+            if mem_addr not in self.maps_info:
+                self.maps_info[mem_addr] = {
+                    'pl_number': pl_number,
+                    'ranges': []
+                }
+            self.maps_info[mem_addr]['ranges'].append({
+                'timestamp': timestamp,
+                'block_start': (block_start_coords[0], block_start_coords[1]),
+                'range': range_vals
+            })
+
+            print(f"Parsed At NewBlock: time={timestamp}, addr={mem_addr}, block_start=({block_start_coords[0]}, {block_start_coords[1]})")
+            return True
+        except (ValueError, IndexError) as e:
+            # 忽略无法解析的行
+            print(f"Warning: Could not parse At NewBlock line: {line[:100]}... Error: {e}")
+            return False
+
+    def parse_set_new_block(self, line):
+        """解析ClusterGridMapImpl::Set NewBlock日志"""
+        # 示例: 1242, 2614420 T3935 ClusterGridMapX::Set:652 [info] [PL6] ClusterGridMapImpl::Set NewBlock this 0x7f84c142d0 x=1201, y=1204, blockStart(1152 1152) tableIdx=738, blockCount=395, maxBlockCount=800 mapRange=[0 0 2559 2559]
+        # 或者: 1377, 3653145 T2854 ClusterGridMapX::Set:652 [info] [PL6] ClusterGridMapImpl::Set NewBlock this 0x7f92c1a250 x=539, y=491, blockStart(512 448) tableIdx=120, blockCount=1, maxBlockCount=128 mapRange=[0 0 1023 1023]
+        if "ClusterGridMapImpl::Set NewBlock" not in line:
+            return False
+
+        try:
+            # 找到第一个逗号的位置
+            first_comma = line.find(',')
+            if first_comma == -1:
+                return False
+
+            # 从第一个逗号后开始查找时间戳
+            # 跳过逗号后的空格（如果有）
+            start_pos = first_comma + 1
+            while start_pos < len(line) and line[start_pos] == ' ':
+                start_pos += 1
+
+            # 查找下一个空格或制表符作为时间戳结束位置
+            end_pos = start_pos
+            while end_pos < len(line) and line[end_pos] not in [' ', '\t']:
+                end_pos += 1
+
+            # 提取时间戳
+            timestamp_str = line[start_pos:end_pos]
+            timestamp = float(timestamp_str)
+
+            # 查找 PL 标签
+            pl_start = line.find('[PL')
+            if pl_start == -1:
+                return False
+
+            # 提取 PL 编号
+            pl_end = line.find(']', pl_start)
+            if pl_end == -1:
+                return False
+
+            pl_number = line[pl_start+3:pl_end]
+
+            # 查找 this 指针
+            this_start = line.find('this ')
+            if this_start == -1:
+                return False
+
+            mem_addr_start = this_start + 5  # 跳过 'this '
+            mem_addr_end = line.find(' ', mem_addr_start)
+            if mem_addr_end == -1:
+                mem_addr_end = len(line)
+
+            mem_addr = line[mem_addr_start:mem_addr_end].strip()
+
+            # 查找坐标 (x, y)
+            coords_start = line.find('x=')
+            coords_end = line.find(',', coords_start)
+            x = int(line[coords_start+2:coords_end])
+
+            coords_start = coords_end + 1
+            coords_end = line.find(' ', coords_start)
+            y = int(line[coords_start:coords_end])
+
+            # 查找 blockStart
+            block_start_start = line.find('blockStart(')
+            if block_start_start == -1:
+                return False
+
+            block_start_start += 11  # 跳过 'blockStart('
+            block_start_end = line.find(')', block_start_start)
+            if block_start_end == -1:
+                return False
+
+            block_start_str = line[block_start_start:block_start_end]
+            block_start_coords = list(map(int, block_start_str.split()))
+
+            # 查找 mapRange
+            range_start = line.find('mapRange=[')
+            if range_start == -1:
+                return False
+
+            range_start += 10  # 跳过 'mapRange=['
+            range_end = line.find(']', range_start)
+            if range_end == -1:
+                return False
+
+            range_str = line[range_start:range_end]
+            range_vals = list(map(int, range_str.split()))
+
+            log_entry = {
+                'type': 'set_new_block',
+                'timestamp': timestamp,
+                'pl_number': pl_number,
+                'mem_addr': mem_addr,
+                'block_start': (block_start_coords[0], block_start_coords[1]),
+                'range': range_vals
+            }
+
+            self.logs.append(log_entry)
+            self.add_to_time_logs(timestamp, log_entry)
+
+            # 更新地图信息
+            if mem_addr not in self.maps_info:
+                self.maps_info[mem_addr] = {
+                    'pl_number': pl_number,
+                    'ranges': []
+                }
+            self.maps_info[mem_addr]['ranges'].append({
+                'timestamp': timestamp,
+                'block_start': (block_start_coords[0], block_start_coords[1]),
+                'range': range_vals
+            })
+
+            print(f"Parsed Set NewBlock: time={timestamp}, addr={mem_addr}, block_start=({block_start_coords[0]}, {block_start_coords[1]})")
+            return True
+        except (ValueError, IndexError) as e:
+            # 忽略无法解析的行
+            print(f"Warning: Could not parse Set NewBlock line: {line[:100]}... Error: {e}")
+            return False
+
+    def parse_slam_position(self, line):
+        """解析SLAMAlgorithm::RecordSLAMPos日志"""
+        # 示例: 88503,4970881 T1484 SLAMAlgorithm::SLAMAlgorithm::RecordSLAMPos:132 [info] [PL9] 1650,-278,94.66
+        # 或者: 91580, 5028719 T2570 SLAMAlgorithm::SLAMAlgorithm::RecordSLAMPos:132 [info] [PL9] 1,528,-89.90
+
+        # 查找 SLAMAlgorithm::RecordSLAMPos 关键字
+        if "SLAMAlgorithm::RecordSLAMPos" not in line:
+            return False
+
+        try:
+            # 找到第一个逗号的位置
+            first_comma = line.find(',')
+            if first_comma == -1:
+                return False
+
+            # 从第一个逗号后开始查找时间戳
+            # 跳过逗号后的空格（如果有）
+            start_pos = first_comma + 1
+            while start_pos < len(line) and line[start_pos] == ' ':
+                start_pos += 1
+
+            # 查找下一个空格或制表符作为时间戳结束位置
+            end_pos = start_pos
+            while end_pos < len(line) and line[end_pos] not in [' ', '\t']:
+                end_pos += 1
+
+            # 提取时间戳
+            timestamp_str = line[start_pos:end_pos]
+            timestamp = float(timestamp_str)
+
+            # 查找 PL 标签
+            pl_start = line.find('[PL')
+            if pl_start == -1:
+                return False
+
+            # 提取 PL 编号
+            pl_end = line.find(']', pl_start)
+            if pl_end == -1:
+                return False
+
+            pl_number = line[pl_start+3:pl_end]
+
+            # 查找位置信息 (格式: x,y,theta)
+            # 从PL标签结束后查找坐标
+            coords_start = pl_end + 2  # 跳过 '] '
+            coords_part = line[coords_start:].strip()
+
+            # 分割坐标
+            coords = coords_part.split(',')
+            if len(coords) < 3:
+                return False
+
+            x = int(coords[0])
+            y = int(coords[1])
+            theta = float(coords[2])
+
+            # 转换坐标 (单位毫米转为地图坐标，除以50)
+            x_map = x / 50.0
+            y_map = y / 50.0
+
+            log_entry = {
+                'type': 'robot_position',
+                'timestamp': timestamp,
+                'pl_number': pl_number,
+                'x': x_map,
+                'y': y_map,
+                'theta': theta
+            }
+
+            self.logs.append(log_entry)
+            self.add_to_time_logs(timestamp, log_entry)
+            self.robot_positions[timestamp] = (x_map, y_map, theta)
+            print(f"Parsed robot position: time={timestamp}, pos=({x_map}, {y_map}), theta={theta}")
+            return True
+        except (ValueError, IndexError) as e:
+            # 忽略无法解析的行
+            print(f"Warning: Could not parse robot position line: {line[:100]}... Error: {e}")
+            return False
+
+    def add_to_time_logs(self, timestamp, log_entry):
+        """将日志添加到时间索引中"""
+        if timestamp not in self.time_logs:
+            self.time_logs[timestamp] = []
+        self.time_logs[timestamp].append(log_entry)
+        # print(f"Added log entry at timestamp {timestamp}")
+
+    def update_time_slider(self):
+        """更新时间滑块"""
+        if self.time_logs:
+            timestamps = sorted(self.time_logs.keys())
+            self.time_slider.setMinimum(0)
+            self.time_slider.setMaximum(len(timestamps) - 1)
+            # 设置初始值为第一个时刻，而不是最后一个
+            self.time_slider.setValue(0)
+            print(f"Updated time slider: {len(timestamps)} timestamps found, range: {timestamps[0]} to {timestamps[-1]}")
+            # 立即更新显示
+            if len(timestamps) > 0:
+                self.current_time_index = 0  # 修改为0而不是最后一个
+                self.time_label.setText(f"Time: {timestamps[0]}")
+                self.update_display()
+        else:
+            print("No time logs found")
+
+    def update_map_checkboxes(self):
+        """更新地图选择复选框"""
+        # 清除现有复选框
+        for i in reversed(range(self.map_selection_layout.count())):
+            widget = self.map_selection_layout.itemAt(i).widget()
+            if isinstance(widget, QCheckBox):
+                widget.setParent(None)
+
+        # 添加新的复选框
+        self.map_checkboxes = {}
+        for addr, info in self.maps_info.items():
+            name = info.get('name', f"Map {addr}")
+            checkbox = QCheckBox(f"{name} ({addr})")
+            checkbox.setChecked(True)
+            checkbox.mem_addr = addr
+            self.map_selection_layout.addWidget(checkbox)
+            self.map_checkboxes[addr] = checkbox
+        print(f"Updated map checkboxes: {len(self.maps_info)} maps found")
+
+    def on_time_changed(self, value):
+        """时间滑块值改变时的处理函数"""
+        # 使用timer来延迟处理，避免滑动过程中频繁更新
+        if hasattr(self, '_timer'):
+            self._timer.stop()
+        else:
+            self._timer = QTimer()
+            self._timer.setSingleShot(True)
+            self._timer.timeout.connect(self._update_display)
+
+        self._slider_value = value
+        self._timer.start(100)  # 延迟100ms更新
+
+    def _update_display(self):
+        """延迟更新显示"""
+        value = self._slider_value
+        print(f"Time slider changed to value: {value}")
+        if self.time_logs:
+            timestamps = sorted(self.time_logs.keys())
+            if 0 <= value < len(timestamps):
+                timestamp = timestamps[value]
+                self.time_label.setText(f"Time: {timestamp:.0f}")
+                self.current_time_index = value
+                self.update_display()
+        else:
+            print("No time logs available")
+
+    def update_display(self):
+        """更新显示内容"""
+        print(f"Updating display, time_logs count: {len(self.time_logs)}, robot_positions count: {len(self.robot_positions)}")
+        # 这里应该根据当前时间更新地图上的内容显示
+        # 包括机器人的位置和内存块的显示
+
+        # 总是重新显示背景（如果有地图就显示地图，否则显示默认背景）
+        self.display_background()
+
+        # 获取当前时间戳
+        timestamps = sorted(self.time_logs.keys()) if self.time_logs else []
+        if 0 <= self.current_time_index < len(timestamps):
+            current_timestamp = timestamps[self.current_time_index]
+            print(f"Displaying data for timestamp: {current_timestamp}")
+
+            # 绘制动态元素
+            self.refresh_dynamic_elements(current_timestamp)
+        else:
+            # 如果没有时间日志，但有机器人位置，也尝试显示
+            if self.robot_positions:
+                latest_time = max(self.robot_positions.keys())
+                print(f"No time logs, displaying latest robot position for timestamp: {latest_time}")
+                self.refresh_dynamic_elements(latest_time)
+            else:
+                print(f"Invalid time index: {self.current_time_index} or no timestamps")
+
+    def refresh_dynamic_elements(self, timestamp):
+        """刷新动态元素（机器人位置、内存块等）"""
+        print(f"Refreshing dynamic elements for timestamp: {timestamp}")
+        try:
+            # 清除之前的动态元素（保留背景）
+            self.clear_dynamic_elements()
+
+            # 绘制内存块
+            self.draw_memory_blocks(timestamp)
+
+            # 绘制机器人位置和轨迹
+            self.draw_robot_position(timestamp)
+            self.draw_robot_path(timestamp)
+            print("Finished refreshing dynamic elements")
+        except Exception as e:
+            print(f"Error refreshing dynamic elements: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def clear_dynamic_elements(self):
+        """清除动态元素，保留背景"""
+        # 收集所有需要移除的动态元素（非背景Pixmap）
+        items_to_remove = []
+        background_items = []
+
+        for item in self.graphics_scene.items():
+            # 检查是否为Pixmap（背景图像）
+            if hasattr(item, 'pixmap') and item.pixmap() and not item.pixmap().isNull():
+                background_items.append(item)
+            else:
+                # 其他元素都是动态元素
+                items_to_remove.append(item)
+
+        # 如果没有背景图像但有地图，则重新显示地图
+        if not background_items and self.ppm_map is not None:
+            self.display_map()
+            return
+
+        # 移除动态元素
+        for item in items_to_remove:
+            self.graphics_scene.removeItem(item)
+
+    def draw_memory_blocks(self, timestamp):
+        """绘制内存块"""
+        try:
+            # 遍历所有已注册的地图
+            for mem_addr, map_info in self.maps_info.items():
+                # 检查地图是否有对应的checkbox且被选中
+                if mem_addr in self.map_checkboxes and self.map_checkboxes[mem_addr].isChecked():
+                    # 绘制该地图的所有在当前时间戳之前分配的内存块
+                    for block_info in map_info.get('ranges', []):
+                        if block_info['timestamp'] <= timestamp:
+                            self.draw_single_block(block_info)
+        except Exception as e:
+            print(f"Error drawing memory blocks: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def draw_single_block(self, block_info):
+        """绘制单个内存块"""
+        try:
+            block_start = block_info['block_start']
+            map_range = block_info['range']
+
+            # 找到最近一次 SetAll（清空）事件的时间戳
+            last_clear_time = 0
+            if mem_addr in self.time_logs:
+                # 遍历所有时间日志，查找该地图的 SetAll 事件
+                for time_key in self.time_logs:
+                    if time_key <= timestamp:
+                        for log_entry in self.time_logs[time_key]:
+                            if (log_entry.get('type') == 'set_all' and
+                                log_entry.get('mem_addr') == mem_addr):
+                                last_clear_time = max(last_clear_time, time_key)
+
+            # 使用集合去重，确保每个位置只绘制一次
+            drawn_positions = set()
+            # 只绘制在最近一次清空之后分配的内存块
+            for block_info in map_info.get('ranges', []):
+                # 跳过清空事件
+                if block_info.get('type') == 'clear':
+                    continue
+                # 只绘制在最近清空之后且在当前时间之前的内存块
+                if block_info['timestamp'] > last_clear_time and block_info['timestamp'] <= timestamp:
+                    # 使用 (block_start, range) 作为唯一标识
+                    position_key = (block_info['block_start'], tuple(block_info['range']))
+                    if position_key not in drawn_positions:
+                        self.draw_single_block(block_info)
+                        drawn_positions.add(position_key)
+            # 计算比例因子
+            # map_range格式: [min_x, min_y, max_x, max_y]
+            range_width = map_range[2] - map_range[0]
+            range_height = map_range[3] - map_range[1]
+
+            # 根据地图范围确定比例因子
+            scale_factor = 1.0
+            if range_width == 1023 and range_height == 1023:
+                # 比例是1:1
+                scale_factor = 1.0
+            elif range_width == 2559 and range_height == 2559:
+                # 比例需要折算，起点和宽高都要除以2.5
+                scale_factor = 2.5
+
+            # 计算在地图上的位置
+            # 需要将block_start坐标转换为显示坐标
+            # 根据地图范围确定比例因子和中心偏移
+            block_y = block_start[1] / scale_factor
+            center_offset = 512  # 默认中心偏移
+
+            block_width = 64 / scale_factor
+                # 比例是1:1，地图范围 [0, 0, 1023, 1023]
+
+                center_offset = 512
+            # 转换为显示坐标系（地图坐标[-512, -512]到[511, 511]映射到像素坐标）
+                # 比例需要折算，地图范围 [0, 0, 2559, 2559]
+                display_x = (block_x + 512) * (self.ppm_map.mapWidth / 1023)
+                center_offset = 1280
+                display_y = (511 - block_y) * (self.ppm_map.mapHeight / 1023)  # 翻转Y轴
+
+            # blockStart是相对于mapRange的坐标，需要减去中心偏移转换到[-512, 511]坐标系
+            block_x = (block_start[0] - center_offset) / scale_factor
+            block_y = (block_start[1] - center_offset) / scale_factor
+                rect_item = self.graphics_scene.addRect(display_x, display_y, block_width, block_height, pen, brush)
+                print(f"Drawn memory block at ({display_x}, {display_y}) with size ({block_width}, {block_height})")
+        except Exception as e:
+            print(f"Error drawing single block: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def draw_robot_position(self, timestamp):
+        """绘制机器人位置"""
+        print(f"Drawing robot position for timestamp: {timestamp}")
+        # 查找最接近指定时间戳的机器人位置
+        closest_time = None
+        closest_position = None
+        for robot_time in self.robot_positions:
+            if robot_time <= timestamp:
+                if closest_time is None or robot_time > closest_time:
+                    closest_time = robot_time
+                    closest_position = self.robot_positions[robot_time]
+
+        if closest_position is not None:
+            x, y, theta = closest_position
+            print(f"Found robot position: ({x}, {y}), theta: {theta}")
+
+            # 转换为显示坐标系
+            # 使用实际的地图尺寸或者默认尺寸
+            map_to_use = self.ppm_map if self.ppm_map is not None else getattr(self, 'default_map', None)
+            if map_to_use is not None:
+                print(f"Map size: {map_to_use.mapWidth} x {map_to_use.mapHeight}")
+                display_x = (x + 512) * (map_to_use.mapWidth / 1023)
+                display_y = (511 - y) * (map_to_use.mapHeight / 1023)  # 翻转Y轴
+                print(f"Display coordinates: ({display_x}, {display_y})")
+
+                # 检查坐标是否在合理范围内
+                if 0 <= display_x <= map_to_use.mapWidth and 0 <= display_y <= map_to_use.mapHeight:
+                    # 绘制红色圆圈表示机器人
+                    brush = QBrush(QColor(255, 0, 0, 200))  # 红色半透明画刷
+                    pen = QPen(QColor(255, 0, 0))
+                    pen.setWidth(2)
+                    ellipse = self.graphics_scene.addEllipse(display_x - 10, display_y - 10, 20, 20, pen, brush)
+                    print(f"Drawn robot ellipse at: ({display_x-10}, {display_y-10}, 20, 20)")
+
+                    # 绘制方向指示线
+                    # theta是角度，需要转换为弧度
+                    rad = math.radians(theta)
+                    line_length = 25
+                    end_x = display_x + line_length * math.cos(rad)
+                    end_y = display_y - line_length * math.sin(rad)  # 注意Y轴翻转
+                    self.graphics_scene.addLine(display_x, display_y, end_x, end_y, pen)
+
+                    pen = QPen(QColor(255, 0, 0))
+        """绘制机器人轨迹"""
+        print(f"Drawing robot path up to timestamp: {current_timestamp}")
+        try:
+    def draw_robot_path(self, current_timestamp):
+        try:
+            if not self.robot_positions:
+                print("No robot positions to draw")
+                return
+
+            # 获取按时间排序的位置列表
+            sorted_times = sorted(self.robot_positions.keys())
+
+            # 收集需要绘制的路径点
+                    # 转换为显示坐标系
+                    display_x = (x + 512) * (map_to_use.mapWidth / 1023)
+                    display_y = (511 - y) * (map_to_use.mapHeight / 1023)
+                    current_point = (display_x, display_y)
+
+                    # 绘制路径线
+                    if time == sorted_times[0]:
+                        # 第一个点
+                        last_display_x, last_display_y = display_x, display_y
+                    else:
+                        # 其他点
+                        pen = QPen(QColor(0, 255, 0, 150))  # 半透明绿色
+                        self.graphics_scene.addLine(last_display_x, last_display_y, display_x, display_y, pen)
+                        # 更新最后一个点
+                        last_display_x, last_display_y = display_x, display_y
+                pen.setWidth(2)
+            print(f"Error drawing robot path: {e}")
+            import traceback
+            # 显示PPM地图
+            self.display_map()
+        else:
+            # 显示默认背景
+            self.display_default_background()
+
+    def display_default_background(self):
+        """显示默认背景（用于没有加载地图时显示机器人轨迹）"""
+        # 清除场景
+        self.graphics_scene.clear()
+
+        # 设置默认场景大小（模拟地图大小）
+        width, height = 1024, 1024
+        self.graphics_scene.setSceneRect(0, 0, width, height)
+
+        # 绘制网格线
+        # 设置默认的ppm_map尺寸，以便坐标转换可以正常工作
+        class DefaultMap:
+            def __init__(self):
+                self.mapWidth = 1024
+                self.mapHeight = 1024
+
+        self.default_map = DefaultMap()
+
+        # 设置场景大小
+        self.graphics_scene.setSceneRect(0, 0, self.default_map.mapWidth, self.default_map.mapHeight)
+        grid_size = 50
+        for x in range(0, width, grid_size):
+            self.graphics_scene.addLine(x, 0, x, height, pen)
+        for y in range(0, height, grid_size):
+            self.graphics_scene.addLine(0, y, width, y, pen)
+
+        for x in range(0, self.default_map.mapWidth, grid_size):
+            self.graphics_scene.addLine(x, 0, x, self.default_map.mapHeight, pen)
+        for y in range(0, self.default_map.mapHeight, grid_size):
+            self.graphics_scene.addLine(0, y, self.default_map.mapWidth, y, pen)
+        self.graphics_scene.addLine(width/2, 0, width/2, height, pen)  # Y轴
+
+        # 添加坐标标签
+        font = self.graphics_scene.font()
+        self.graphics_scene.addLine(0, self.default_map.mapHeight/2, self.default_map.mapWidth, self.default_map.mapHeight/2, pen)  # X轴
+        self.graphics_scene.addLine(self.default_map.mapWidth/2, 0, self.default_map.mapWidth/2, self.default_map.mapHeight, pen)  # Y轴
+        # 中心点标签
+        text = self.graphics_scene.addText("(0,0)", font)
+        text.setPos(width/2 + 5, height/2 + 5)
+        text.setDefaultTextColor(QColor(255, 0, 0, 128))
+
+        # 角落标签
+        text = self.graphics_scene.addText("(-512,-512)", font)
+        text.setPos(self.default_map.mapWidth/2 + 5, self.default_map.mapHeight/2 + 5)
+        text.setDefaultTextColor(QColor(255, 0, 0, 128))
+
+        text = self.graphics_scene.addText("(511,511)", font)
+        text.setPos(width - 80, 5)
+        text.setPos(5, self.default_map.mapHeight - 20)
+
+        # 设置默认的ppm_map尺寸，以便坐标转换可以正常工作
+        class DefaultMap:
+        text.setPos(self.default_map.mapWidth - 80, 5)
+                self.mapWidth = 1024
+                self.mapHeight = 1024
+    viewer.show()
+    sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()

@@ -132,6 +132,41 @@ class GraphicAlgo:
 
         return ret
 
+    @staticmethod
+    def getBresenhamPoints4d(ptBeg, ptEnd):
+        ret = []
+
+        x0, y0, x1, y1 = ptBeg.x(), ptBeg.y(), ptEnd.x(), ptEnd.y()
+        dx, dy = abs(x1 - x0), abs(y1 - y0)
+        sx = 1 if x1 > x0 else -1
+        sy = 1 if y1 > y0 else -1
+
+        err = 0
+        x, y = x0, y0
+        print("==================================================")
+        for i in range(0, dx + dy + 1):
+
+            ret.append(QPoint(x, y))
+
+            ex = err + dy
+            ey = err - dx
+            print(f"{x} {y} {err} {ex} {ey}")
+
+            if x == x1 and y == y1:
+                break
+
+            if abs(ex) < abs(ey):
+                x += sx
+                err = ex
+            elif abs(ex) == abs(ey):
+                x += sx
+                y += sy
+                err = ex - dx
+            else:
+                y += sy
+                err = ey
+
+        return ret
 
     @staticmethod
     def getHull(points, type, param=None):
