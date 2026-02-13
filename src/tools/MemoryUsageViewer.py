@@ -153,6 +153,7 @@ class MemoryUsageViewer(QMainWindow):
         self.time_logs = {}  # 按时间索引的日志
         self.maps_info = {}  # 存储地图信息
         self.robot_positions = {}  # 存储机器人位置
+        self.dstar_paths = {}  # 存储DStar路径 {timestamp: [(x,y), ...]}
         self.current_time_index = 0
         self.map_checkboxes = {}
         self.loaded_log_files = set() # 存储已加载的日志文件路径
@@ -219,6 +220,12 @@ class MemoryUsageViewer(QMainWindow):
         self.enable_set_all_checkbox.setChecked(True)
         self.enable_set_all_checkbox.stateChanged.connect(lambda: self.update_display())
         button_layout.addWidget(self.enable_set_all_checkbox)
+
+        # DStar路径开关
+        self.show_dstar_checkbox = QCheckBox("Show DStar Path")
+        self.show_dstar_checkbox.setChecked(True)
+        self.show_dstar_checkbox.stateChanged.connect(lambda: self.update_display())
+        button_layout.addWidget(self.show_dstar_checkbox)
 
         main_layout.addLayout(button_layout)
 
@@ -515,6 +522,9 @@ class MemoryUsageViewer(QMainWindow):
             return result
         elif "ClusterMapCore::LogStackTrace" in line:
             result = self.parse_log_stack_trace(line)
+            return result
+        elif "DStarLite::operator()" in line and "Dstar path result" in line:
+            result = self.parse_dstar_path(line)
             return result
         elif "SLAMAlgorithm::RecordSLAMPos" in line:
             result = self.parse_slam_position(line)
@@ -1017,6 +1027,48 @@ class MemoryUsageViewer(QMainWindow):
             print(f"Warning: Could not parse Set NewBlock line: {line[:100]}... Error: {e}")
             return False
 
+    def parse_dstar_path(self, line):
+        """解析DStarLite路径结果日志"""
+        # 示例: 27181, 5198365 T1222 DStarLite::operator():40 [notice] [PL6] Dstar path result: (37,240) (36,240) ...
+        if "DStarLite::operator()" not in line or "Dstar path result" not in line:
+            return False
+
+        try:
+            first_comma = line.find(',')
+            if first_comma == -1:
+                return False
+
+            start_pos = first_comma + 1
+            while start_pos < len(line) and line[start_pos] == ' ':
+                start_pos += 1
+
+            end_pos = start_pos
+            while end_pos < len(line) and line[end_pos] not in [' ', '\t']:
+                end_pos += 1
+
+            timestamp = float(line[start_pos:end_pos])
+
+            points = []
+            for match in re.finditer(r"\((-?\d+),\s*(-?\d+)\)", line):
+                points.append((int(match.group(1)), int(match.group(2))))
+
+            if not points:
+                return False
+
+            log_entry = {
+                'type': 'dstar_path',
+                'timestamp': timestamp,
+                'points': points
+            }
+
+            self.logs.append(log_entry)
+            self.add_to_time_logs(timestamp, log_entry)
+            self.dstar_paths[timestamp] = points
+            return True
+        except (ValueError, IndexError) as e:
+            print(f"Warning: Could not parse DStar path line: {line[:100]}... Error: {e}")
+            return False
+
     def parse_slam_position(self, line):
         """解析SLAMAlgorithm::RecordSLAMPos日志"""
         # 示例: 88503,4970881 T1484 SLAMAlgorithm::SLAMAlgorithm::RecordSLAMPos:132 [info] [PL9] 1650,-278,94.66
@@ -1342,6 +1394,9 @@ class MemoryUsageViewer(QMainWindow):
             # 绘制机器人位置和轨迹
             self.draw_robot_position(timestamp)
             self.draw_robot_path(timestamp)
+
+            # 绘制DStar路径
+            self.draw_dstar_path(timestamp)
             print("Finished refreshing dynamic elements")
         except Exception as e:
             print(f"Error refreshing dynamic elements: {e}")
@@ -1560,7 +1615,50 @@ class MemoryUsageViewer(QMainWindow):
             import traceback
             traceback.print_exc()
 
+    def draw_dstar_path(self, timestamp):
+        """绘制DStar路径"""
+        if not self.show_dstar_checkbox.isChecked() or not self.dstar_paths:
+            return
 
+        try:
+            latest_time = None
+            for t in self.dstar_paths.keys():
+                if t <= timestamp and (latest_time is None or t > latest_time):
+                    latest_time = t
+
+            if latest_time is None:
+                return
+
+            points = self.dstar_paths.get(latest_time, [])
+            if len(points) < 2:
+                return
+
+            map_to_use = self.ppm_map if self.ppm_map is not None else getattr(self, 'default_map', None)
+            if map_to_use is None:
+                return
+
+            path = QPainterPath()
+            scale_x = map_to_use.mapWidth / 1024
+            scale_y = map_to_use.mapHeight / 1024
+
+            # DStar路径坐标按地图坐标系绘制，需要转换到显示坐标系
+            # 地图坐标系: [-512, -512] 到 [511, 511]
+            # 显示坐标系: [0, 0] 到 [width, height]
+            first_x, first_y = points[0]
+            display_x = (first_x + 512) * scale_x
+            display_y = (512 - first_y) * scale_y
+            path.moveTo(display_x, display_y)
+
+            for x, y in points[1:]:
+                display_x = (x + 512) * scale_x
+                display_y = (512 - y) * scale_y
+                path.lineTo(display_x, display_y)
+
+            pen = QPen(QColor(218, 165, 32))  # 金色
+            pen.setWidth(2)
+            self.graphics_scene.addPath(path, pen)
+        except Exception as e:
+            print(f"Error drawing DStar path: {e}")
 
     def display_background(self):
         """显示背景（地图或默认背景）"""
@@ -1632,12 +1730,13 @@ class MemoryUsageViewer(QMainWindow):
         # 更新 graphics_view 的引用，以便鼠标坐标显示正常
         self.graphics_view.ppm_map_ref = self.default_map
 
-# python
+
 def main():
     app = QApplication(sys.argv)
     viewer = MemoryUsageViewer()
     viewer.show()
     sys.exit(app.exec_())
+
 
 if __name__ == '__main__':
     main()
